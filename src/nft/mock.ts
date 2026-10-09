@@ -31,5 +31,9 @@ export function createMockAdapter(): NftAdapter {
       const h = hashString(`mock-owner:${tokenId}`).toString(16).padStart(8, "0");
       return `0x${h.repeat(5)}`;
     },
+    async ownedBy(address) {
+      const mine = env.mockOwner && env.mockOwner.toLowerCase() === address.toLowerCase();
+      return mine ? Array.from({ length: Math.min(MOCK_OWNED_COUNT, env.mockSupply) }, (_, i) => i + 1) : [];
+    },
   };
 }

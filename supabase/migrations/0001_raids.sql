@@ -6,6 +6,7 @@ create table if not exists raids (
   token_id integer not null,
   raider text not null,
   practice boolean not null default false,
+  defender text,                   -- defense owner at raid start; null for practice
   traps jsonb not null,            -- trap snapshot at raid start (replays stay exact after edits)
   moves text not null default '',  -- e.g. 'RRUDL'; this is the replay
   move_count integer not null default 0,

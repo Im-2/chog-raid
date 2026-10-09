@@ -11,6 +11,8 @@ export type RaidRecord = {
   raider: string;
   /** True when the room had no saved defense and practice traps were used. */
   practice: boolean;
+  /** Who defended the room when the raid started (the defense's owner); null for practice. */
+  defender: string | null;
   /** Traps as they were when the raid started, so replays stay exact after edits. */
   traps: Trap[];
   moves: string;
@@ -38,6 +40,7 @@ export interface Store {
   abandonActive(raider: string, tokenId: number): Promise<void>;
   /** Newest first. */
   listRaids(tokenId: number, limit: number): Promise<RaidRecord[]>;
-  /** Saved defense for a room (written in milestone 5). */
+  /** Saved defense for a room. */
   getDefense(tokenId: number): Promise<DefenseRecord | null>;
+  saveDefense(d: DefenseRecord): Promise<void>;
 }

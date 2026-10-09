@@ -24,11 +24,68 @@ import { RoomInfo, type ChogSummary } from "../game/RoomInfo";
 import { SoundToggle } from "../game/RaidScreen";
 import { TrapIcon } from "../game/TrapIcon";
 import { useLocalRaid } from "../game/useLocalRaid";
+import { SessionError, WalletButton } from "../wallet/WalletButton";
+import { shortAddress, signIn, useSession } from "../wallet/session";
 import { Sheet } from "../ui/Sheet";
 import { ReplayPlayer } from "./ReplayPlayer";
 import { RoomRaidLog } from "./RoomRaidLog";
 import styles from "./defend.module.css";
 import gameStyles from "../game/game.module.css";
+
+type DefenseState =
+  | { status: "loading" | "error" }
+  | { status: "ready"; owner: string | null; isOwner: boolean; traps: Trap[] | null; defended: boolean; updatedAt: string | null };
+
+/** Save button plus a plain-language line about who can save and whether the room is live. */
+function SaveBox({
+  defense,
+  signedIn,
+  dirty,
+  saving,
+  onSave,
+  fallbackOwner,
+}: {
+  defense: DefenseState;
+  signedIn: boolean;
+  dirty: boolean;
+  saving: boolean;
+  onSave: () => void;
+  fallbackOwner: string | null;
+}) {
+  const owner = defense.status === "ready" ? defense.owner : fallbackOwner;
+  const isOwner = defense.status === "ready" && defense.isOwner;
+  let note: React.ReactNode;
+  if (defense.status === "loading") note = "Checking who holds this Chog…";
+  else if (defense.status === "error") note = "Couldn't check ownership on Monad. Your draft is safe on this device.";
+  else if (!signedIn) note = <>Draft saved on this device. Connect the holder&apos;s wallet to make it live.</>;
+  else if (!isOwner) note = <>Only the holder{owner ? <> (<span className="num">{shortAddress(owner)}</span>)</> : null} can save this room. Your draft stays on this device.</>;
+  else if (dirty)
+    note = (
+      <b style={{ color: "var(--torch)" }}>
+        Unsaved changes. {defense.status === "ready" && defense.defended ? "Raiders still face your last saved defense." : "Until you save, raiders face practice traps."}
+      </b>
+    );
+  else if (defense.status === "ready" && defense.defended) note = <>Live. Raiders face these traps{defense.updatedAt ? ` (saved ${new Date(defense.updatedAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" })})` : ""}.</>;
+  else note = "Not defended yet. Until you save, raiders face practice traps.";
+
+  return (
+    <>
+      {signedIn || defense.status !== "ready" ? (
+        <button className="btn" style={{ width: "100%", marginTop: 8 }} onClick={onSave} disabled={!isOwner || !dirty || saving}>
+          {saving ? "Saving…" : isOwner && !dirty && defense.status === "ready" && defense.defended ? "Saved ✓" : "Save defense"}
+        </button>
+      ) : (
+        <button className="btn" style={{ width: "100%", marginTop: 8 }} onClick={() => void signIn()}>
+          Connect wallet to save
+        </button>
+      )}
+      <SessionError />
+      <p className="small muted" style={{ margin: "8px 0 0" }}>
+        {note}
+      </p>
+    </>
+  );
+}
 
 type LogEntry = { id: string; at: number; moves: Move[]; traps: Trap[]; outcome: RaidOutcome; hp: number };
 type Tool = TrapType | "erase";
@@ -122,12 +179,58 @@ export function DefendEditor({ room, chog, owner }: { room: Room; chog: ChogSumm
   const [panel, setPanel] = useState<"none" | "info" | "replay">("none");
   const [replay, setReplay] = useState<LogEntry | null>(null);
 
+  const session = useSession();
+  const [defense, setDefense] = useState<DefenseState>({ status: "loading" });
+  const [saving, setSaving] = useState(false);
+
   useEffect(() => {
     const draft = load<Trap[]>(draftKey, []);
     setTraps(validateTraps(room, draft).ok ? draft : []);
     setLog(load<LogEntry[]>(logKey, []));
     setSound(loadSoundPref());
   }, [draftKey, logKey, room]);
+
+  // Who holds this Chog, and (for the holder) the saved traps. Re-checked when the wallet changes.
+  useEffect(() => {
+    if (session.status === "loading") return;
+    let cancelled = false;
+    setDefense({ status: "loading" });
+    fetch(`/api/rooms/${room.tokenId}/defense`, { cache: "no-store" })
+      .then(async (r) => {
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.error);
+        if (cancelled) return;
+        setDefense({ status: "ready", ...j });
+        if (j.isOwner && j.traps) setTraps(j.traps);
+      })
+      .catch(() => !cancelled && setDefense({ status: "error" }));
+    return () => {
+      cancelled = true;
+    };
+  }, [room.tokenId, session.address, session.status]);
+
+  const savedTraps = defense.status === "ready" ? (defense.traps ?? []) : [];
+  const dirty = JSON.stringify(traps) !== JSON.stringify(savedTraps);
+
+  const saveDefense = async () => {
+    setSaving(true);
+    try {
+      const r = await fetch(`/api/rooms/${room.tokenId}/defense`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ traps }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error ?? "Couldn't save.");
+      setDefense({ status: "ready", ...j });
+      setMessage({ kind: "ok", text: "Saved. Your room is live and defends itself from now on." });
+      if (sound) playSfx("key");
+    } catch (e) {
+      setMessage({ kind: "error", text: (e as Error).message });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const commit = useCallback(
     (next: Trap[], okText?: string): boolean => {
@@ -232,6 +335,7 @@ export function DefendEditor({ room, chog, owner }: { room: Room; chog: ChogSumm
             ☰
           </button>
           <SoundToggle on={sound} onChange={setSound} />
+          <WalletButton compact />
         </div>
       </header>
 
@@ -355,12 +459,14 @@ export function DefendEditor({ room, chog, owner }: { room: Room; chog: ChogSumm
                   Clear
                 </button>
               </div>
-              <button className="btn" style={{ width: "100%", marginTop: 8 }} disabled title="Needs wallet sign-in">
-                Save defense
-              </button>
-              <p className="small muted" style={{ margin: "8px 0 0" }}>
-                Draft saved on this device. Saving to the dungeon needs wallet sign-in{owner ? ` as the owner (${owner.slice(0, 6)}…${owner.slice(-4)})` : ""}, which arrives in the next build step.
-              </p>
+              <SaveBox
+                defense={defense}
+                signedIn={!!session.address}
+                dirty={dirty}
+                saving={saving}
+                onSave={saveDefense}
+                fallbackOwner={owner}
+              />
             </section>
 
             <section className="panel">

@@ -16,7 +16,12 @@ import {
 } from "@/engine";
 import type { RaidRecord, RaidStatus, Store } from "./store/types";
 
-export type RaidDeps = { store: Store; getRoom: (tokenId: number) => Promise<Room | null> };
+export type RaidDeps = {
+  store: Store;
+  getRoom: (tokenId: number) => Promise<Room | null>;
+  /** Current holder onchain (or mock). */
+  ownerOf: (tokenId: number) => Promise<string | null>;
+};
 
 /** What the raider is allowed to know. */
 export type RaidView = {
@@ -68,15 +73,17 @@ export function viewOf(room: Room, r: RaidRecord): RaidView {
 }
 
 /** Traps used for a room right now: the owner's saved defense, or seeded practice traps. */
-export async function trapsFor(deps: RaidDeps, room: Room): Promise<{ traps: Trap[]; practice: boolean }> {
+export async function trapsFor(deps: RaidDeps, room: Room): Promise<{ traps: Trap[]; practice: boolean; defender: string | null }> {
   const defense = await deps.store.getDefense(room.tokenId);
-  return defense ? { traps: defense.traps, practice: false } : { traps: sampleTraps(room, room.seed), practice: true };
+  return defense
+    ? { traps: defense.traps, practice: false, defender: defense.owner }
+    : { traps: sampleTraps(room, room.seed), practice: true, defender: null };
 }
 
 export async function startRaid(deps: RaidDeps, tokenId: number, raider: string): Promise<Result<RaidView>> {
   const room = await deps.getRoom(tokenId);
   if (!room) return fail(404, "No such Chog.");
-  const { traps, practice } = await trapsFor(deps, room);
+  const { traps, practice, defender } = await trapsFor(deps, room);
   await deps.store.abandonActive(raider, tokenId);
   const now = new Date().toISOString();
   const record: RaidRecord = {
@@ -84,6 +91,7 @@ export async function startRaid(deps: RaidDeps, tokenId: number, raider: string)
     tokenId,
     raider,
     practice,
+    defender,
     traps,
     moves: "",
     status: "active",
@@ -153,14 +161,18 @@ export async function getRaidView(deps: RaidDeps, raidId: string, raider: string
 export type Replay = { raidId: string; tokenId: number; practice: boolean; status: RaidStatus; traps: Trap[]; moves: Move[] };
 
 /**
- * Full replay, including every trap. Only for finished raids, and only for practice raids
- * or the raider themselves (the room owner is added in milestone 5).
+
+ * Full replay, including every trap. Only for finished raids, and only for practice raids,
+ * the raider, or the room's current holder.
  */
 export async function getReplay(deps: RaidDeps, raidId: string, requester: string): Promise<Result<Replay>> {
   const rec = await deps.store.getRaid(raidId);
   if (!rec) return fail(404, "Raid not found.");
   if (rec.status === "active") return fail(409, "This raid is still in progress.");
-  if (!rec.practice && rec.raider !== requester) return fail(403, "Only the raider or the room's owner can replay this.");
+  if (!rec.practice && rec.raider.toLowerCase() !== requester.toLowerCase()) {
+    const owner = await deps.ownerOf(rec.tokenId);
+    if (!owner || owner.toLowerCase() !== requester.toLowerCase()) return fail(403, "Only the raider or the room's owner can replay this.");
+  }
   return {
     ok: true,
     value: { raidId: rec.id, tokenId: rec.tokenId, practice: rec.practice, status: rec.status, traps: rec.traps, moves: rec.moves.split("") as Move[] },

@@ -51,3 +51,7 @@ supabase/.temp
 
 # local raid store (file backend)
 .data/
+
+# mock demo server
+.next-mock/
+.data-mock/

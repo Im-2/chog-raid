@@ -6,6 +6,7 @@ type RaidRow = {
   token_id: number;
   raider: string;
   practice: boolean;
+  defender: string | null;
   traps: RaidRecord["traps"];
   moves: string;
   move_count: number;
@@ -23,6 +24,7 @@ const toRow = (r: RaidRecord): RaidRow => ({
   token_id: r.tokenId,
   raider: r.raider,
   practice: r.practice,
+  defender: r.defender,
   traps: r.traps,
   moves: r.moves,
   move_count: r.moves.length,
@@ -40,6 +42,7 @@ const fromRow = (r: RaidRow): RaidRecord => ({
   tokenId: r.token_id,
   raider: r.raider,
   practice: r.practice,
+  defender: r.defender,
   traps: r.traps,
   moves: r.moves,
   status: r.status,
@@ -99,6 +102,9 @@ export function createSupabaseStore(url: string, serviceKey: string): Store {
         updated_at: string;
       } | null;
       return row ? { tokenId: row.token_id, owner: row.owner, traps: row.traps, updatedAt: row.updated_at } : null;
+    },
+    async saveDefense(d) {
+      check(await db.from("defenses").upsert({ token_id: d.tokenId, owner: d.owner, traps: d.traps, updated_at: d.updatedAt }));
     },
   };
 }

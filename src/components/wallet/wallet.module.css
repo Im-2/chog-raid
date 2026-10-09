@@ -1,0 +1,54 @@
+.wrap {
+  position: relative;
+  display: inline-flex;
+  gap: 6px;
+}
+.placeholder {
+  width: 120px;
+  opacity: 0.3;
+}
+.chip {
+  gap: 8px;
+}
+.chip :global(.num) {
+  font-size: 13px;
+}
+.dot {
+  width: 8px;
+  height: 8px;
+  background: var(--moss);
+  box-shadow: 0 0 8px var(--moss);
+}
+.menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 30;
+  min-width: 160px;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border: 3px solid var(--border);
+  box-shadow: 0 0 0 2px var(--ink), 0 12px 30px rgba(0, 0, 0, 0.5);
+}
+.menu a,
+.menu button {
+  padding: 10px 14px;
+  text-align: left;
+  font-family: var(--font-pixel);
+  font-size: 15px;
+  color: var(--text);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.menu a:hover,
+.menu button:hover {
+  background: var(--panel-2);
+  text-decoration: none;
+}
+.error {
+  margin: 8px 0 0;
+  color: var(--blood);
+  font-size: 14px;
+}

@@ -75,6 +75,36 @@ export function createOnchainAdapter(): NftAdapter {
   const client = createPublicClient({ chain, transport: http(rpcUrl, { batch: true }) }) as PublicClient;
 
   let supply: { value: number; at: number } | null = null;
+  let owners: { map: Map<number, string>; at: number } | null = null;
+  let ownersLoading: Promise<Map<number, string>> | null = null;
+
+  /** Every token's holder, via Multicall3 in chunks (~8s for the full collection). */
+  async function scanOwners(): Promise<Map<number, string>> {
+    const total = await totalSupply();
+    const ids = Array.from({ length: total }, (_, i) => i + 1);
+    const map = new Map<number, string>();
+    for (let i = 0; i < ids.length; i += 500) {
+      const chunk = ids.slice(i, i + 500);
+      const res = await client.multicall({
+        multicallAddress: env.multicall3,
+        allowFailure: true,
+        contracts: chunk.map((id) => ({ address, abi: ERC721, functionName: "ownerOf" as const, args: [BigInt(id)] as const })),
+      });
+      res.forEach((r, j) => r.status === "success" && map.set(chunk[j], r.result as string));
+    }
+    return map;
+  }
+
+  /** Cached for 2 minutes; a stale snapshot is served while a fresh one loads. */
+  function ownersSnapshot(): Promise<Map<number, string>> {
+    const fresh = owners && Date.now() - owners.at < 2 * 60_000;
+    if (!fresh && !ownersLoading) {
+      ownersLoading = scanOwners()
+        .then((map) => ((owners = { map, at: Date.now() }), map))
+        .finally(() => (ownersLoading = null));
+    }
+    return owners ? Promise.resolve(owners.map) : ownersLoading!;
+  }
   const meta = new Map<number, Promise<Chog | null>>();
   const pixels = new Map<number, Promise<Pixel[] | null>>();
 
@@ -151,6 +181,11 @@ export function createOnchainAdapter(): NftAdapter {
     getChog,
     getPixels,
     getImage,
+    async ownedBy(holder) {
+      const map = await ownersSnapshot();
+      const want = holder.toLowerCase();
+      return [...map].filter(([, o]) => o.toLowerCase() === want).map(([id]) => id).sort((a, b) => a - b);
+    },
     async ownerOf(tokenId) {
       if (!(await exists(tokenId))) return null;
       try {

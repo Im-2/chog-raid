@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { RoomBrowser } from "@/components/home/RoomBrowser";
+import { WalletButton } from "@/components/wallet/WalletButton";
 import styles from "./home.module.css";
 
 export default function Home() {
@@ -9,6 +10,9 @@ export default function Home() {
         <Link href="/" className={styles.brand}>
           CHOG<span>RAID</span>
         </Link>
+        <span style={{ marginLeft: "auto" }}>
+          <WalletButton />
+        </span>
       </header>
 
       <main>

@@ -53,5 +53,9 @@ export function createMemoryStore(
       const d = state.defenses[String(tokenId)];
       return d ? copy(d) : null;
     },
+    async saveDefense(d) {
+      state.defenses[String(d.tokenId)] = copy(d);
+      onChange();
+    },
   };
 }

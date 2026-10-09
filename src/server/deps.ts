@@ -1,10 +1,15 @@
 import "server-only";
 import { loadRoom } from "@/lib/rooms";
+import { getNftAdapter } from "@/nft";
 import type { RaidDeps } from "./raids";
 import { getStore } from "./store";
 
 export function raidDeps(): RaidDeps {
-  return { store: getStore(), getRoom: async (id) => (await loadRoom(id))?.room ?? null };
+  return {
+    store: getStore(),
+    getRoom: async (id) => (await loadRoom(id))?.room ?? null,
+    ownerOf: (id) => getNftAdapter().ownerOf(id),
+  };
 }
 
 /** Turn a service Result into a JSON response. */

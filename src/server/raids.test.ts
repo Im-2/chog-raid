@@ -10,7 +10,7 @@ function setup(defense?: Trap[]) {
   const store = createMemoryStore();
   const r = room(42);
   if (defense) store.state.defenses["42"] = { tokenId: 42, owner: "0xowner", traps: defense, updatedAt: "" };
-  const deps: RaidDeps = { store, getRoom: async (id) => (id === 42 ? r : null) };
+  const deps: RaidDeps = { store, getRoom: async (id) => (id === 42 ? r : null), ownerOf: async (id) => (id === 42 ? "0xOwner" : null) };
   return { store, deps, room: r };
 }
 

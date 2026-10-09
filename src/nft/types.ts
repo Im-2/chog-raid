@@ -27,4 +27,6 @@ export interface NftAdapter {
   /** Original artwork bytes (onchain only). */
   getImage?(tokenId: number): Promise<Buffer | null>;
   ownerOf(tokenId: number): Promise<Address | null>;
+  /** Token ids held by an address (scans the collection; cached briefly). */
+  ownedBy(address: string): Promise<number[]>;
 }

@@ -1,6 +1,7 @@
 import "server-only";
 import { createHash, randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
+import { sessionAddress } from "./session";
 
 const COOKIE = "cr_guest";
 
@@ -10,10 +11,12 @@ export function guestIdFor(secret: string): string {
 }
 
 /**
- * Who is making this request. Until wallet sign-in (milestone 5) everyone is a guest,
- * identified by an httpOnly random secret cookie. Creates one when `create` is set.
+ * Who is making this request: the signed-in wallet address, or else a guest identified by an
+ * httpOnly random secret cookie (created when `create` is set).
  */
 export async function currentRaider(create = false): Promise<string | null> {
+  const wallet = await sessionAddress();
+  if (wallet) return wallet;
   const jar = await cookies();
   let secret = jar.get(COOKIE)?.value;
   if (!secret || !/^[a-f0-9]{48}$/.test(secret)) {
@@ -30,7 +33,7 @@ export async function currentRaider(create = false): Promise<string | null> {
   return guestIdFor(secret);
 }
 
-/** Short display label, e.g. "Guest 3fa2". */
+/** Short display label, e.g. "Guest 3fa2" or "0x3D38…E7E0". */
 export function raiderLabel(id: string): string {
   if (id.startsWith("guest:")) return `Guest ${id.slice(6, 10)}`;
   return `${id.slice(0, 6)}…${id.slice(-4)}`;

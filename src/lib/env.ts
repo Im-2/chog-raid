@@ -21,6 +21,8 @@ export const env = {
     .map((g) => g.trim())
     .filter(Boolean),
   cacheDir: optional("CHOG_CACHE_DIR") ?? ".cache",
+  /** Multicall3 (same address on most EVM chains, deployed on Monad). Used to scan holders. */
+  multicall3: (optional("MULTICALL3_ADDRESS") ?? "0xcA11bde05977b3631167028862bE2a173976CA11") as Address,
   mockSupply: Number(optional("MOCK_SUPPLY") ?? 1969),
   mockOwner: optional("MOCK_OWNER_ADDRESS") as Address | undefined,
 };
