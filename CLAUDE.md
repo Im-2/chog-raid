@@ -1,0 +1,118 @@
+# Chog Raid: build brief for Claude Code
+
+Paste this whole file to Claude Code as the first message (or save it as CLAUDE.md in the repo root). Build in the order given. Ship a working core first, then the extras.
+
+---
+
+## 1. What we're building
+
+**Chog Raid**: every Chog NFT becomes a room in one giant shared dungeon. Owners set traps and defend their room, even while offline. Everyone else raids rooms and tries to reach the exit.
+
+One-sentence pitch: *Every Chog becomes a room in one giant shared dungeon: owners set traps and defend it while offline, and everyone else raids it.*
+
+This is for Chogathon 2026 (Chog NFT hackathon). Rules that shape every decision:
+
+- **The Chog NFT must be essential.** Without the NFT there must be no room, no defender, and no game. Never build a mode that works without a Chog. (Raiding other people's rooms needs no NFT to *play*, but every room comes from a Chog and only the holder can defend it. Keep a clear connected-wallet flow.)
+- Judging weights: Novelty 30, Fun 20, Retention 20, Clarity 15, Execution 15, plus an optional $CHOG token bonus. Tie-breakers: novelty, then retention.
+- Must be easy to understand in one sentence, easy to demo in a 3-minute video, and actually working with simple testing instructions.
+- I am building this fast. Do not pad scope. A tight, polished core beats a big half-finished world.
+
+## 2. Unknowns: do these first, and ask me if blocked
+
+1. **Chain: Monad (confirmed).** The Chog NFT collection lives on Monad. Chain ID, RPC URL, and the Chog contract address are **env config** (`NEXT_PUBLIC_CHAIN_ID`, `NEXT_PUBLIC_RPC_URL`, `NEXT_PUBLIC_CHOG_CONTRACT_ADDRESS`; see `.env.example`), never hardcoded.
+2. What the metadata looks like: image URL pattern, trait names and values, total supply.
+3. Until that's known, build behind a **NFT data adapter** with two implementations: `mock` (generated fake Chogs, so everything is testable now) and `onchain` (real reads). Switching is one env var.
+
+## 3. Core game design
+
+**Format: turn-based, grid-based dungeon.** Chosen because it is simple to build, easy to understand, and lets the server replay and validate a raid deterministically (no cheating, no real-time netcode).
+
+### 3.1 Room generation (deterministic)
+- Input: token ID + image + traits. Same input must always give the same room.
+- Downsample the Chog image to a small grid (start with 16x16). Quantize colors to a few palette groups. Map each group to a tile type (floor, wall, water/slow, hazard, etc.) using a fixed, documented mapping.
+- Guarantee solvability: entrance and exit always exist and a path always connects them (run a pathfinding check at generation; adjust tiles if it fails).
+- Traits influence the room: for example certain traits add a hazard type, change the number of **trap slots**, or unlock specific **trap types** for the defender. Keep the trait-to-rule table in one config file so it is easy to tune.
+- The room should visibly look like its Chog (the palette and shapes should be recognizable).
+
+### 3.2 Defending (owner only)
+- Connect wallet, sign a message to log in, and verify ownership via `ownerOf` (or the adapter).
+- Owner sees their Chog's room and a limited number of trap slots. Place trap types on valid tiles. Start with 4 types, for example: spike (damage), teleporter (sends raider back), guard (patrols a fixed route), lock-door (needs a key tile).
+- Trap setup is saved server-side. The room is "defended" automatically when raided, even when the owner is offline.
+- Re-verify ownership at the moment of every edit. If the Chog is transferred, the new owner takes over the room and the old owner loses edit rights.
+
+### 3.3 Raiding (anyone)
+- Anyone can browse rooms and raid one. Raider moves tile by tile with a limited number of moves/HP.
+- The client sends the **move list** to the server. The server replays it with the same deterministic engine and decides the outcome (breach or fail). Never trust the client's claimed result.
+- Record every raid: raider, room, outcome, move path, where they died or got stuck.
+- Owner gets a **raid log**: "Your Chog was raided 4 times, 1 got through," with the replay of each.
+
+### 3.4 Stats and leaderboards
+- Per Chog: raids received, breaches, defense rate. Per raider: rooms cleared, fastest clears.
+- Leaderboards: best defenders, best raiders, fastest clear per room.
+
+## 4. The extras that make it unique (build after the core works)
+
+These are the novelty features. Build in this order, only after sections 3.1–3.4 work end to end.
+
+1. **Level memory (small, high impact).** Rooms remember their history: a footstep heatmap, death markers, and visible "scars" on frequently raided rooms. A room should look different after it has been raided a lot.
+2. **The Atlas (shared world).** Every Chog is a room placed on one big map (neighbors by token ID adjacency or by shared trait). Show a zoomable map of the whole collection, color-coded by how heavily defended or raided each room is. Click a room to raid it. Stretch: walking from one room's exit straight into the next room.
+3. **Daily raid.** One featured room per day (seeded, deterministic) with a daily leaderboard, to give people a reason to return.
+4. **Raid alerts.** In-app notification feed for "your Chog was raided" (push or email only if time allows).
+
+## 5. $CHOG token bonus (optional, last)
+
+Behind a feature flag, off by default. If time allows: optional $CHOG entry fee for daily raid and payout to the defender or top raiders. The game must be fully playable without it. Keep the integration small and real, not decorative.
+
+## 6. Suggested stack (change if you have a better reason)
+
+- Next.js + TypeScript.
+- Canvas rendering (plain Canvas or Phaser 3) for the grid game.
+- wagmi + viem for wallet connection and `ownerOf`.
+- Supabase (Postgres) for rooms, traps, raids, stats.
+- A shared, pure TypeScript **game engine package** (room generation + raid simulation) used by both client and server so replays match exactly. Unit test this heavily.
+
+### Data model (starting point)
+- `rooms`: token_id, seed, grid, trait_snapshot, owner_wallet, updated_at
+- `traps`: room_id, type, x, y
+- `raids`: id, room_id, raider_wallet, moves, outcome, steps, created_at
+- `room_stats` (or view): raids, breaches, heat map data
+- `alerts`: wallet, raid_id, read
+
+## 7. Build order (milestones, not a schedule)
+
+1. Repo scaffold, env config, NFT data adapter with `mock` mode.
+2. Game engine package: deterministic room generator + raid simulator + tests (same input, same output; solvable rooms).
+3. Render a room, and let me play a raid locally.
+4. Server: save raid results with deterministic replay validation.
+5. Wallet login + ownership check + trap placement and saving.
+6. Room browser, raid log for owners, stats and leaderboards.
+7. Connect the `onchain` adapter with the real collection.
+8. Extras in order: level memory, Atlas, daily raid, alerts.
+9. Optional $CHOG feature flag.
+10. Polish: clean UI, onboarding in one screen ("Defend your Chog. Raid others."), mobile-friendly, loading and error states.
+
+At each milestone, run the app, check it works, and tell me what to look at before moving on.
+
+## 8. Definition of done
+
+- A new user understands the game within 10 seconds of landing.
+- A holder can connect, set traps, and see raid logs.
+- Anyone can raid a room and the result is server-validated.
+- Rooms visibly come from their Chog and are always solvable.
+- No bugs in the main path, with clear empty and error states.
+- Deployed with a public link, a README with simple testing instructions (including a no-wallet or mock way to try it), and a short list of what is next.
+
+## 9. Submission assets to prepare alongside (hackathon asks for these)
+
+- Demo link + demo video up to 3 minutes. Script it: pick a Chog, show its room, set a trap, switch accounts and raid it, show the raid log.
+- Short "why Chog matters" write-up (no Chog, no room, no owner, no game).
+- Repo, tech stack, and any pre-existing work used.
+- Any user feedback or usage numbers collected, and what is next.
+
+## 10. Rules for you, Claude Code
+
+- Keep scope tight. If something is not in this brief, ask before adding it.
+- Prefer simple and working over clever.
+- Keep the engine deterministic and pure, with tests.
+- Commit in small steps with clear messages.
+- Don't hardcode secrets or contract addresses. Use env vars and provide `.env.example`.
