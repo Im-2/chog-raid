@@ -5,8 +5,10 @@ export type Address = `0x${string}`;
 export type Chog = {
   tokenId: number;
   name: string;
-  /** Displayable image URL (http(s) or data:). */
+  /** Displayable image URL served by this app (/api/chogs/:id/image). */
   image: string;
+  /** The metadata's own image field (e.g. ipfs://...), when onchain. */
+  imageSource?: string;
   traits: Trait[];
 };
 
@@ -22,5 +24,7 @@ export interface NftAdapter {
   getChog(tokenId: number): Promise<Chog | null>;
   /** The Chog image downsampled to ROOM_SIZE x ROOM_SIZE, row-major. */
   getPixels(tokenId: number): Promise<Pixel[] | null>;
+  /** Original artwork bytes (onchain only). */
+  getImage?(tokenId: number): Promise<Buffer | null>;
   ownerOf(tokenId: number): Promise<Address | null>;
 }

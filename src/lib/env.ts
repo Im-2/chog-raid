@@ -7,14 +7,21 @@ function optional(name: string): string | undefined {
   return v ? v : undefined;
 }
 
+const chogContract = optional("NEXT_PUBLIC_CHOG_CONTRACT_ADDRESS") as Address | undefined;
+
 export const env = {
-  nftAdapter: (optional("NFT_ADAPTER") ?? "mock") as "mock" | "onchain",
+  /** Defaults to onchain when a contract is configured, else mock. */
+  nftAdapter: (optional("NFT_ADAPTER") ?? (chogContract ? "onchain" : "mock")) as "mock" | "onchain",
   chainId: Number(optional("NEXT_PUBLIC_CHAIN_ID") ?? 0),
   chainName: optional("NEXT_PUBLIC_CHAIN_NAME") ?? "Monad",
   rpcUrl: optional("NEXT_PUBLIC_RPC_URL"),
-  chogContract: optional("NEXT_PUBLIC_CHOG_CONTRACT_ADDRESS") as Address | undefined,
-  metadataGateway: optional("CHOG_METADATA_GATEWAY"),
-  mockSupply: Number(optional("MOCK_SUPPLY") ?? 4444),
+  chogContract,
+  ipfsGateways: (optional("CHOG_IPFS_GATEWAYS") ?? "https://ipfs.filebase.io/ipfs/,https://gateway.pinata.cloud/ipfs/")
+    .split(",")
+    .map((g) => g.trim())
+    .filter(Boolean),
+  cacheDir: optional("CHOG_CACHE_DIR") ?? ".cache",
+  mockSupply: Number(optional("MOCK_SUPPLY") ?? 1969),
   mockOwner: optional("MOCK_OWNER_ADDRESS") as Address | undefined,
 };
 

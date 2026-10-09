@@ -20,8 +20,8 @@ This is for Chogathon 2026 (Chog NFT hackathon). Rules that shape every decision
 ## 2. Unknowns: do these first, and ask me if blocked
 
 1. **Chain: Monad (confirmed).** The Chog NFT collection lives on Monad. Chain ID, RPC URL, and the Chog contract address are **env config** (`NEXT_PUBLIC_CHAIN_ID`, `NEXT_PUBLIC_RPC_URL`, `NEXT_PUBLIC_CHOG_CONTRACT_ADDRESS`; see `.env.example`), never hardcoded.
-2. What the metadata looks like: image URL pattern, trait names and values, total supply.
-3. Until that's known, build behind a **NFT data adapter** with two implementations: `mock` (generated fake Chogs, so everything is testable now) and `onchain` (real reads). Switching is one env var.
+2. **Collection: "Chog Genesis" (resolved).** Contract `0xc96d31f8626c6d03fae5dcd3d61e3fb9f4a73763` on Monad mainnet (chain id 143). ERC-721 with the metadata extension (not enumerable). Token ids 1-1969, total supply 1,969. `tokenURI` returns `ipfs://<cid>/<n>.json` (file numbers are shuffled relative to token ids), and the metadata `image` is `ipfs://<cid>/<n>.webp` (1000x1000). Always resolve the image from metadata; never hardcode image URLs. Trait types: Accessory, Aura, Background, Base, Body, Eyes, Form, Head, Mouth, Naked, Side, Skin, Tier.
+3. Everything goes through the **NFT data adapter** (`src/nft`): `onchain` (default, real reads) and `mock` (generated Chogs, offline fallback). Switching is one env var: `NFT_ADAPTER`.
 
 ## 3. Core game design
 
@@ -42,8 +42,10 @@ This is for Chogathon 2026 (Chog NFT hackathon). Rules that shape every decision
 
 ### 3.3 Raiding (anyone)
 - Anyone can browse rooms and raid one. Raider moves tile by tile with a limited number of moves/HP.
-- The client sends the **move list** to the server. The server replays it with the same deterministic engine and decides the outcome (breach or fail). Never trust the client's claimed result.
-- Record every raid: raider, room, outcome, move path, where they died or got stuck.
+- **Spikes and teleporters are hidden** until stepped on; guards, lock doors and keys are visible. So the client must never receive the full trap list for a real raid.
+- **The server resolves each move as it is made** (decided by the user): the client starts a raid session, then sends one move at a time. The server appends it to the session's stored move list, re-runs the deterministic engine on the full list, and returns only what the raider can now see (position, HP, moves left, keys, guard positions, revealed traps, events, outcome). Never trust the client's claimed result.
+- Record every raid: raider, room, outcome, the full stored move list, where they died or got stuck. The move list is what the owner's raid log replays.
+- **Undefended rooms** use seeded practice traps, clearly labeled "practice", so there is always something to raid.
 - Owner gets a **raid log**: "Your Chog was raided 4 times, 1 got through," with the replay of each.
 
 ### 3.4 Stats and leaderboards
