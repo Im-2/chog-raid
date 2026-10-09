@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MOCK_TRAITS, mockPixels, mockTraits } from "@/nft/mockArt";
+import { mockPixels, mockTraits } from "@/nft/mockArt";
 import { classifyPixel } from "./color";
 import { GAME, ROOM_SIZE } from "./config";
 import { generateRoom } from "./generate";
@@ -94,28 +94,46 @@ describe("room generation", () => {
 });
 
 describe("trait rules", () => {
-  it("applies listed effects", () => {
-    const { rules } = resolveRules([
+  it("applies real Chog Genesis trait effects", () => {
+    const { rules, hazardSprinkle } = resolveRules([
+      { trait_type: "Tier", value: "Rare" },
       { trait_type: "Head", value: "Crown" },
-      { trait_type: "Background", value: "Night" },
+      { trait_type: "Eyes", value: "fire laser" },
+      { trait_type: "Skin", value: "Pink" },
     ]);
-    expect(rules.trapSlots).toBe(GAME.baseTrapSlots + 1);
+    expect(rules.trapSlots).toBe(GAME.baseTrapSlots + 2);
     expect(rules.allowedTraps).toContain("guard");
-    expect(rules.notes.length).toBe(2);
+    expect(hazardSprinkle).toBe(4);
+    expect(rules.notes.length).toBe(3);
   });
 
-  it("gives unknown traits a stable fallback and ignores 'None'", () => {
-    const t = { trait_type: "Hat", value: "Wizard" };
-    expect(effectForTrait(t)).toEqual(effectForTrait({ ...t }));
+  it("gives a common Chog the base rules", () => {
+    const { rules, hazardSprinkle } = resolveRules([
+      { trait_type: "Tier", value: "Common" },
+      { trait_type: "Eyes", value: "Happy" },
+      { trait_type: "Head", value: "Mon Cap" },
+    ]);
+    expect(rules.trapSlots).toBe(GAME.baseTrapSlots);
+    expect(rules.allowedTraps).toEqual(["spike", "teleporter"]);
+    expect(hazardSprinkle).toBe(0);
+  });
+
+  it("matches values case-insensitively", () => {
+    expect(effectForTrait({ trait_type: "Eyes", value: "FIRE LASER" })).toEqual(
+      effectForTrait({ trait_type: "Eyes", value: "fire laser" }),
+    );
+  });
+
+  it("ignores unlisted values of known types, and gives unknown types a stable fallback", () => {
+    expect(effectForTrait({ trait_type: "Head", value: "Brand New Hat" })).toEqual({});
     expect(effectForTrait({ trait_type: "Head", value: "None" })).toEqual({});
+    const t = { trait_type: "Weather", value: "Rain" };
+    expect(effectForTrait(t)).toEqual(effectForTrait({ ...t }));
   });
 
-  it("lists every mock trait value explicitly (no fallback in mock mode)", () => {
-    for (const [type, options] of Object.entries(MOCK_TRAITS)) {
-      for (const [value] of options) {
-        if (value !== "None") expect(TRAIT_RULES[type]?.[value], `${type}:${value}`).toBeDefined();
-      }
-    }
+  it("only uses trait types from the real collection", () => {
+    const real = ["Accessory", "Aura", "Background", "Base", "Body", "Eyes", "Form", "Head", "Mouth", "Naked", "Side", "Skin", "Tier"];
+    expect(Object.keys(TRAIT_RULES).sort()).toEqual(real);
   });
 
   it("caps trap slots", () => {
