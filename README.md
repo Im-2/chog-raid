@@ -17,7 +17,11 @@ Open http://localhost:3000.
 - **Raid a room**: walk from IN to the glowing door with arrow keys / WASD, swipes, or the d-pad. Rooms without a defender use clearly labeled practice traps.
 - **Defend my Chog**: place traps in your Chog's slots, test the room yourself, and replay test raids from the raid log.
 
-Offline or no RPC? Set `NFT_ADAPTER=mock` in `.env.local` to use generated Chogs.
+- **Leaderboards**: top raiders, Wardens (defenders) and fastest clears per room.
+
+**No wallet or no Chog?** Run `npm run dev:mock` and open http://localhost:3001: generated Chogs, and a **Demo owner** button that signs you in as the holder of Chogs 1-10 so you can save a defense and raid it from another browser. (Offline or no RPC? Set `NFT_ADAPTER=mock` in `.env.local`.)
+
+With a real wallet: Connect wallet signs a Sign-In with Ethereum message (no gas). Saving a defense checks `ownerOf` on Monad on every save.
 
 ## How it works
 

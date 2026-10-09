@@ -1,19 +1,12 @@
 import Link from "next/link";
 import { RoomBrowser } from "@/components/home/RoomBrowser";
-import { WalletButton } from "@/components/wallet/WalletButton";
+import { SiteNav } from "@/components/ui/SiteNav";
 import styles from "./home.module.css";
 
 export default function Home() {
   return (
     <>
-      <header className={styles.nav}>
-        <Link href="/" className={styles.brand}>
-          CHOG<span>RAID</span>
-        </Link>
-        <span style={{ marginLeft: "auto" }}>
-          <WalletButton />
-        </span>
-      </header>
+      <SiteNav />
 
       <main>
         <section className={styles.hero}>

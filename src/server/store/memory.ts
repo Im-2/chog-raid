@@ -49,6 +49,13 @@ export function createMemoryStore(
         .slice(0, limit)
         .map(copy);
     },
+    async listFinishedRaids(limit) {
+      return Object.values(state.raids)
+        .filter((r) => r.status === "breach" || r.status === "dead" || r.status === "exhausted")
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .slice(0, limit)
+        .map(copy);
+    },
     async getDefense(tokenId) {
       const d = state.defenses[String(tokenId)];
       return d ? copy(d) : null;

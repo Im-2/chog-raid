@@ -4,6 +4,8 @@ import path from "node:path";
 import { GAME, resolveRules, type Trait } from "@/engine";
 import { env } from "@/lib/env";
 import { getNftAdapter, type Chog } from "@/nft";
+import { getStats, leastDefended, mostRaided } from "@/server/stats";
+import { getStore } from "@/server/store";
 
 export type RoomCard = {
   tokenId: number;
@@ -12,6 +14,9 @@ export type RoomCard = {
   tier?: string;
   /** 1-5, from the room rules the Chog's traits produce. 0 = unknown (metadata unavailable right now). */
   difficulty: number;
+  /** Present on the raid-stat sorts. */
+  raids?: number;
+  defenseRate?: number;
 };
 
 export type RoomSort = "id" | "hardest" | "raided" | "undefended";
@@ -87,8 +92,18 @@ export async function listRooms(opts: { sort: RoomSort; page: number; pageSize: 
   }
 
   if (opts.sort === "raided" || opts.sort === "undefended") {
-    // Needs recorded raids and saved defenses (milestones 4-6).
-    return { items: [], total: 0, hasMore: false, reason: "no-raid-data" as const };
+    const stats = await getStats(getStore());
+    const ordered = opts.sort === "raided" ? mostRaided(stats) : leastDefended(stats);
+    if (ordered.length === 0) return { items: [], total: 0, hasMore: false, reason: "no-raid-data" as const };
+    const start = opts.page * opts.pageSize;
+    const slice = ordered.slice(start, start + opts.pageSize);
+    const chogs = await Promise.all(slice.map((r) => adapter.getChog(r.tokenId).catch(() => null)));
+    const items = slice.map((r, i): RoomCard => {
+      const c = chogs[i];
+      const base = c ? toCard(c) : { tokenId: r.tokenId, name: `Chog #${r.tokenId}`, image: `/api/chogs/${r.tokenId}/image`, difficulty: 0 };
+      return { ...base, raids: r.raids, defenseRate: r.defenseRate };
+    });
+    return { items, total: ordered.length, hasMore: start + opts.pageSize < ordered.length };
   }
 
   if (opts.sort === "hardest") {

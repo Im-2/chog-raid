@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { InlineState } from "@/components/ui/StateScreen";
-import { SessionError, WalletButton } from "@/components/wallet/WalletButton";
+import { SessionError } from "@/components/wallet/WalletButton";
+import { SiteNav } from "@/components/ui/SiteNav";
 import { shortAddress, signIn, useSession } from "@/components/wallet/session";
 import styles from "../home.module.css";
 import grid from "@/components/home/home.module.css";
@@ -35,14 +36,7 @@ export default function DefendStart() {
 
   return (
     <>
-      <header className={styles.nav}>
-        <Link href="/" className={styles.brand}>
-          CHOG<span>RAID</span>
-        </Link>
-        <span style={{ marginLeft: "auto" }}>
-          <WalletButton />
-        </span>
-      </header>
+      <SiteNav />
       <main className="container">
         <section className={styles.hero} style={{ paddingBottom: 24 }}>
           <h1 className={styles.headline} style={{ fontSize: "clamp(34px, 7vw, 56px)" }}>

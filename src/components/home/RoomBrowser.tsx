@@ -122,6 +122,18 @@ export function RoomBrowser() {
         ))}
       </div>
 
+      {!q && (
+        <p className={styles.filterNote}>
+          {sort === "id"
+            ? "Every Chog in the collection, in token order."
+            : sort === "raided"
+              ? "Rooms with the most raids."
+              : sort === "undefended"
+                ? "Rooms raiders get through most often."
+                : "Rooms whose traits give the defender the most to work with."}
+        </p>
+      )}
+
       {indexing && sort === "hardest" && !q && (
         <p className={styles.note} role="status">
           Mapping the whole dungeon: {indexing.done} / {indexing.total} rooms read so far…
@@ -155,16 +167,14 @@ export function RoomBrowser() {
             kind="empty"
             title={
               data?.reason === "no-raid-data"
-                ? sort === "raided"
-                  ? "No raids recorded yet"
-                  : "No defenses saved yet"
+                ? "No raids recorded yet"
                 : q
                   ? `No Chog #${q}`
                   : "No rooms here yet"
             }
             body={
               data?.reason === "no-raid-data"
-                ? "This list fills up as raids are played and owners save their traps. Be the first."
+                ? "This list fills up as raids are played. Be the first."
                 : q
                   ? "Chog ids run from 1 to 1,969."
                   : undefined
@@ -194,7 +204,15 @@ export function RoomBrowser() {
             </div>
             <div className={styles.cardFoot}>
               <b>#{c.tokenId}</b>
-              {c.difficulty > 0 ? <Skulls n={c.difficulty} /> : <span className="small muted">…</span>}
+              {c.raids !== undefined ? (
+                <span className="small muted">
+                  {c.raids} raid{c.raids === 1 ? "" : "s"} · {Math.round((c.defenseRate ?? 0) * 100)}% held
+                </span>
+              ) : c.difficulty > 0 ? (
+                <Skulls n={c.difficulty} />
+              ) : (
+                <span className="small muted">…</span>
+              )}
             </div>
           </Link>
         ))}

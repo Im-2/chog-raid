@@ -40,6 +40,8 @@ export interface Store {
   abandonActive(raider: string, tokenId: number): Promise<void>;
   /** Newest first. */
   listRaids(tokenId: number, limit: number): Promise<RaidRecord[]>;
+  /** Finished raids (breach / dead / exhausted) across all rooms, newest first. */
+  listFinishedRaids(limit: number): Promise<RaidRecord[]>;
   /** Saved defense for a room. */
   getDefense(tokenId: number): Promise<DefenseRecord | null>;
   saveDefense(d: DefenseRecord): Promise<void>;

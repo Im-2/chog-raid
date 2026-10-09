@@ -94,6 +94,17 @@ export function createSupabaseStore(url: string, serviceKey: string): Store {
       );
       return (rows as RaidRow[]).map(fromRow);
     },
+    async listFinishedRaids(limit) {
+      const rows = check(
+        await db
+          .from("raids")
+          .select("id,token_id,raider,practice,defender,moves,status,hp,moves_left,end_x,end_y,created_at,updated_at")
+          .in("status", ["breach", "dead", "exhausted"])
+          .order("created_at", { ascending: false })
+          .limit(limit),
+      );
+      return (rows as RaidRow[]).map((r) => fromRow({ ...r, traps: [] }));
+    },
     async getDefense(tokenId) {
       const row = check(await db.from("defenses").select("*").eq("token_id", tokenId).maybeSingle()) as {
         token_id: number;
