@@ -1,0 +1,67 @@
+.wrap {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px 16px;
+  gap: 4px;
+}
+.title {
+  margin: 16px 0 0;
+  font-size: clamp(24px, 6vw, 34px);
+  color: var(--torch);
+}
+.wrap p {
+  max-width: 420px;
+}
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/* A pixel torch: flame flickers while loading, gutters out on error. */
+.torch {
+  position: relative;
+  width: 16px;
+  height: 56px;
+  background: #6b4426;
+  box-shadow: 0 0 0 3px var(--ink);
+  margin-top: 40px;
+}
+.torch::before {
+  content: "";
+  position: absolute;
+  left: -6px;
+  top: -34px;
+  width: 28px;
+  height: 30px;
+  background: linear-gradient(#fff3c4, var(--torch) 45%, var(--ember));
+  box-shadow: 0 0 40px 16px rgba(255, 150, 60, 0.45);
+  animation: flicker 0.9s infinite steps(3);
+}
+.torch[data-kind="error"]::before {
+  background: #3a2a1e;
+  box-shadow: none;
+  animation: none;
+  height: 10px;
+  top: -12px;
+}
+.torch[data-kind="empty"]::before {
+  animation-duration: 2.4s;
+}
+
+.inline {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 32px 16px;
+  border: 3px dashed var(--border);
+}
+.inline[data-kind="error"] {
+  border-color: var(--blood);
+}
+.inline p {
+  margin: 6px 0 12px;
+}

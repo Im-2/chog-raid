@@ -1,0 +1,89 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(8, 5, 3, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: fade 0.15s ease-out;
+}
+.backdrop[data-variant="drawer"] {
+  justify-content: flex-end;
+  align-items: stretch;
+  padding: 0;
+}
+
+.sheet {
+  background: var(--panel);
+  border: 3px solid var(--border);
+  box-shadow: 0 0 0 3px var(--ink), 0 20px 60px rgba(0, 0, 0, 0.6);
+  width: min(520px, 100%);
+  max-height: calc(100dvh - 32px);
+  display: flex;
+  flex-direction: column;
+  outline: none;
+  animation: pop 0.18s ease-out;
+}
+.sheet[data-variant="drawer"] {
+  width: min(400px, 100%);
+  max-height: 100dvh;
+  height: 100dvh;
+  animation: slide 0.2s ease-out;
+}
+
+@media (max-width: 640px) {
+  .backdrop[data-variant="drawer"] {
+    align-items: flex-end;
+  }
+  .sheet[data-variant="drawer"] {
+    width: 100%;
+    height: auto;
+    max-height: 85dvh;
+    animation: rise 0.2s ease-out;
+  }
+}
+
+.sheetHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 3px solid var(--border);
+}
+.sheetHead h2 {
+  margin: 0;
+  font-family: var(--font-pixel);
+  font-size: 20px;
+  color: var(--torch);
+}
+.sheetBody {
+  padding: 16px;
+  overflow-y: auto;
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes pop {
+  from {
+    transform: scale(0.96);
+    opacity: 0;
+  }
+}
+@keyframes slide {
+  from {
+    transform: translateX(40px);
+    opacity: 0;
+  }
+}
+@keyframes rise {
+  from {
+    transform: translateY(40px);
+    opacity: 0;
+  }
+}
