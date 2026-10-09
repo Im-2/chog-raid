@@ -6,6 +6,7 @@ import { simulateRaid, type Move, type RaidResult, type Room, type Trap } from "
 export type RaidView = {
   result: RaidResult;
   moves: Move[];
+  movesUsed: number;
   /** Traps the raider can see: guards, doors (with keys), and spikes/teleporters they stepped on. */
   visibleTraps: Trap[];
   /** Indices into visibleTraps of doors whose key is held. */
@@ -37,5 +38,5 @@ export function useLocalRaid(room: Room, traps: Trap[]): RaidView {
   const move = useCallback((m: Move) => setMoves((ms) => (simulateRaid(room, traps, ms).outcome === "incomplete" ? [...ms, m] : ms)), [room, traps]);
   const reset = useCallback(() => setMoves([]), []);
 
-  return { result, moves, visibleTraps, keysHeld, over, move, reset };
+  return { result, moves, movesUsed: moves.length, visibleTraps, keysHeld, over, move, reset };
 }

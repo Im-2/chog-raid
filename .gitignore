@@ -48,3 +48,6 @@ supabase/.temp
 
 # artwork / metadata cache
 .cache/
+
+# local raid store (file backend)
+.data/

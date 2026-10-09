@@ -24,7 +24,8 @@ Offline or no RPC? Set `NFT_ADAPTER=mock` in `.env.local` to use generated Chogs
 - **Real data** (`src/nft/onchain.ts`): `tokenURI` is read on Monad with viem, the metadata JSON is fetched through IPFS gateways, and the image is taken from the metadata's `image` field. Art is cached on disk in `.cache/`.
 - **Room generation** (`src/engine/generate.ts`): the art is downsampled to 16x16, keeping the hand-drawn ink lines (`src/nft/pixels.ts`). Dark lines become walls, blue becomes water (slow), and saturated red becomes embers (damage). A path from entrance to exit is always carved, so every room is beatable.
 - **Traits** shape each room through one table: `src/engine/traitRules.ts` (trap slots, unlocked trap types, extra embers).
-- **Raids** are turn-based and deterministic (`src/engine/simulate.ts`). The same engine runs in the browser and on the server, so the server can replay a move list and decide the result.
+- **Raids** are turn-based and deterministic (`src/engine/simulate.ts`). Real raids are resolved by the server one move at a time (`src/server/raids.ts`): the browser sends a move, the server replays the stored move list with the same engine and returns only what the raider can see, so hidden traps never reach the client. Every raid's move list is stored and doubles as its replay.
+- **Storage** (`src/server/store`): a local JSON file in `.data/` by default; set the Supabase env vars (and run `supabase/migrations/*.sql`) to use Postgres for deployments.
 
 ## Scripts
 

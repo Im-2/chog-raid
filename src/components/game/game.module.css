@@ -412,3 +412,24 @@
   flex-direction: column;
   gap: 10px;
 }
+
+/* Board overlays while the server raid starts or the connection drops */
+.boardState {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px;
+  text-align: center;
+  font-family: var(--font-pixel);
+  font-size: 18px;
+  color: var(--torch);
+  background: rgba(11, 8, 6, 0.6);
+}
+.boardState p {
+  margin: 0;
+  color: var(--text);
+}

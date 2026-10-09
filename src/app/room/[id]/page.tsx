@@ -13,12 +13,6 @@ export default async function RoomPage({ params }: Props) {
   const loaded = await loadRoom(Number((await params).id));
   if (!loaded) notFound();
   const { chog, room } = loaded;
-  // No saved defenses yet (milestone 5), so every room is raided with practice traps.
-  return (
-    <RaidScreen
-      room={room}
-      chog={{ tokenId: chog.tokenId, name: chog.name, image: chog.image, traits: chog.traits }}
-      traps={null}
-    />
-  );
+  // Traps stay on the server: the raid is resolved there move by move.
+  return <RaidScreen room={room} chog={{ tokenId: chog.tokenId, name: chog.name, image: chog.image, traits: chog.traits }} />;
 }

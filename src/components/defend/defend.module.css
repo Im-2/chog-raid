@@ -218,3 +218,12 @@
   flex: 1;
   accent-color: var(--torch);
 }
+.outcome[data-live] {
+  color: #2a1505;
+  background: var(--moss);
+}
+.subhead {
+  margin: 14px 0 8px;
+  font-size: 14px;
+  color: var(--muted);
+}

@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { sampleTraps, type Move, type Room, type Trap } from "@/engine";
+import { useCallback, useEffect, useState } from "react";
+import type { Move, Room } from "@/engine";
 import { loadSoundPref, saveSoundPref } from "@/lib/sound";
 import { Board } from "../board/Board";
 import { Sheet } from "../ui/Sheet";
@@ -11,7 +11,7 @@ import { describeEvent } from "./describe";
 import { Hud } from "./Hud";
 import { ResultCard } from "./ResultCard";
 import { HowToPlay, RoomInfo, type ChogSummary } from "./RoomInfo";
-import { useLocalRaid } from "./useLocalRaid";
+import { useServerRaid } from "./useServerRaid";
 import styles from "./game.module.css";
 
 const KEYS: Record<string, Move> = {
@@ -38,11 +38,11 @@ export function SoundToggle({ on, onChange }: { on: boolean; onChange: (v: boole
   );
 }
 
-export function RaidScreen({ room, chog, traps }: { room: Room; chog: ChogSummary; traps: Trap[] | null }) {
-  const practice = traps === null;
-  const activeTraps = useMemo(() => traps ?? sampleTraps(room, room.seed), [traps, room]);
-  const raid = useLocalRaid(room, activeTraps);
+/** The raid screen. Every move is resolved by the server; the client never sees hidden traps. */
+export function RaidScreen({ room, chog }: { room: Room; chog: ChogSummary }) {
+  const raid = useServerRaid(room.tokenId, room.entrance, room.rules.raiderHp, room.rules.maxMoves);
   const { result } = raid;
+  const practice = raid.practice === true;
 
   const [sound, setSound] = useState(false);
   const [panel, setPanel] = useState<"none" | "info" | "howto">("none");
@@ -78,13 +78,13 @@ export function RaidScreen({ room, chog, traps }: { room: Room; chog: ChogSummar
       if (m) {
         e.preventDefault();
         move(m);
-      } else if ((e.key === "r" || e.key === "R") && raid.moves.length) {
+      } else if ((e.key === "r" || e.key === "R") && raid.movesUsed) {
         again();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [move, again, panel, raid.moves.length]);
+  }, [move, again, panel, raid.movesUsed]);
 
   const last = result.events.at(-1);
 
@@ -138,7 +138,20 @@ export function RaidScreen({ room, chog, traps }: { room: Room; chog: ChogSummar
               onSwipe={move}
             />
             {showResult && (
-              <ResultCard result={result} movesUsed={raid.moves.length} tokenId={room.tokenId} onAgain={again} practice={practice} />
+              <ResultCard result={result} movesUsed={raid.movesUsed} tokenId={room.tokenId} onAgain={again} practice={practice} />
+            )}
+            {raid.phase === "starting" && (
+              <div className={styles.boardState} role="status">
+                Opening the room…
+              </div>
+            )}
+            {raid.phase === "error" && (
+              <div className={styles.boardState} role="alert">
+                <p>{raid.error ?? "Connection lost."}</p>
+                <button className="btn primary" onClick={raid.retry}>
+                  Try again
+                </button>
+              </div>
             )}
           </div>
           <p className={styles.ticker} aria-live="polite">
@@ -153,8 +166,8 @@ export function RaidScreen({ room, chog, traps }: { room: Room; chog: ChogSummar
         </div>
 
         <div className={styles.controls}>
-          <DPad onMove={move} disabled={raid.over} />
-          <button className="btn" onClick={again} disabled={!raid.moves.length}>
+          <DPad onMove={move} disabled={raid.over || raid.phase !== "ready"} />
+          <button className="btn" onClick={again} disabled={!raid.movesUsed || raid.phase === "starting"}>
             Restart <kbd>R</kbd>
           </button>
         </div>

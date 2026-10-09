@@ -26,6 +26,7 @@ import { TrapIcon } from "../game/TrapIcon";
 import { useLocalRaid } from "../game/useLocalRaid";
 import { Sheet } from "../ui/Sheet";
 import { ReplayPlayer } from "./ReplayPlayer";
+import { RoomRaidLog } from "./RoomRaidLog";
 import styles from "./defend.module.css";
 import gameStyles from "../game/game.module.css";
 
@@ -364,9 +365,17 @@ export function DefendEditor({ room, chog, owner }: { room: Room; chog: ChogSumm
 
             <section className="panel">
               <h3 className={styles.h3}>Raid log</h3>
+              <RoomRaidLog
+                tokenId={room.tokenId}
+                onReplay={(r) => {
+                  setReplay({ id: "server", at: 0, outcome: "incomplete", hp: 0, ...r });
+                  setPanel("replay");
+                }}
+              />
+              <h4 className={styles.subhead}>Your test raids</h4>
               {log.length === 0 ? (
                 <p className="small muted" style={{ margin: 0 }}>
-                  No raids yet. Real raids on your Chog will show up here with a replay. Run a test raid to try it.
+                  None yet. Hit &quot;Test raid&quot; to play your own room like a raider would.
                 </p>
               ) : (
                 <ul className={styles.log}>
