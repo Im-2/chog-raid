@@ -1,0 +1,60 @@
+.hero {
+  padding: 24px 0 8px;
+  max-width: 640px;
+}
+.hero h1 {
+  font-size: clamp(30px, 6vw, 48px);
+  line-height: 1.1;
+  margin: 0 0 12px;
+}
+.hero h1 span {
+  color: var(--accent);
+}
+
+.steps {
+  padding-left: 20px;
+  margin: 16px 0;
+}
+.steps li {
+  margin: 4px 0;
+}
+
+.jump {
+  display: flex;
+  gap: 8px;
+  max-width: 360px;
+}
+
+.h2 {
+  margin: 32px 0 12px;
+  font-size: 18px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  padding: 10px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+.card:hover {
+  border-color: var(--accent);
+  text-decoration: none;
+}
+.card img {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 8px;
+}

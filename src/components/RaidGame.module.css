@@ -1,0 +1,88 @@
+.game {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 512px;
+}
+
+.hud {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.hearts {
+  color: var(--bad);
+  letter-spacing: 2px;
+  font-size: 18px;
+}
+.lost {
+  color: var(--border);
+}
+
+.board {
+  position: relative;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(14, 11, 26, 0.6);
+  border-radius: 10px;
+}
+.result {
+  text-align: center;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 28px;
+}
+.result h2 {
+  margin: 0 0 4px;
+}
+.result p {
+  margin: 4px 0;
+}
+.win {
+  color: var(--good);
+}
+.lose {
+  color: var(--bad);
+}
+
+.log {
+  min-height: 62px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+}
+
+.controls {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+.pad {
+  display: grid;
+  grid-template-columns: repeat(3, 52px);
+  grid-template-rows: repeat(2, 52px);
+  gap: 6px;
+}
+.pad button {
+  padding: 0;
+  font-size: 18px;
+}
+.side {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+  min-width: 160px;
+}
