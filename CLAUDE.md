@@ -118,3 +118,20 @@ At each milestone, run the app, check it works, and tell me what to look at befo
 - Keep the engine deterministic and pure, with tests.
 - Commit in small steps with clear messages.
 - Don't hardcode secrets or contract addresses. Use env vars and provide `.env.example`.
+
+## 11. QUEUED: retention and rewards system (start right after milestone 6 is done)
+
+Requested by the user on 2026-10-09. Do NOT start before milestones 4-6 are complete; begin immediately after milestone 6. Retention is 20% of the judging score, so this is core, not optional. Keep the engine deterministic and don't break existing features.
+
+1. **Defender points ("Warden score")**: defenders earn points when a raider fails in their room, more for harder rooms and longer-surviving defenses, and lose none. Show it on the owner dashboard and a Wardens leaderboard.
+2. **Raider points**: earned for clears, fast clears, and first clears of a room. Show a Raiders leaderboard.
+3. **Streaks**: a daily raid streak for raiders and a "days held" streak for defenders whose room wasn't breached. Show the streak prominently.
+4. **Weekly seasons**: leaderboards reset weekly with a visible countdown, and the top 3 get a badge shown on their profile and room.
+5. **Daily raid**: one featured room each day (seeded), with its own daily leaderboard.
+6. **Raid alerts**: when someone raids your Chog, show an in-app alert (and a notification badge) with outcome and a replay link. Add "Defend again" prompting when your room was breached so the owner has a reason to come back and redesign it.
+7. **Rebuild nudge**: after a breach, show the owner exactly where the raider got through (the path heatmap) and suggest a trap slot to change.
+8. **$CHOG integration**, behind a feature flag (off by default; the game fully works without it): an optional $CHOG prize pool funded by raid entry fees on the daily raid, paid out to the top defender and top raider each season. $CHOG token contract: `0x350035555E10d9AfAF1566AaebfCeD5BA6C27777` on Monad. Build a clean, minimal integration. If a real payout contract is too risky for the time available, build the full UI and logic with a testnet or simulated pool and tell the user clearly what is simulated.
+
+Put all tunable numbers (point values, streak rules, season length, fees) in one config file. When done, run the app and tell the user what to look at.
+
+Note: this overlaps the section 4 extras (daily raid, raid alerts, level memory heatmap) and section 5 ($CHOG). Build them as part of this system rather than twice.
