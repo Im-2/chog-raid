@@ -29,6 +29,7 @@ import { shortAddress, signIn, useSession } from "../wallet/session";
 import { Sheet } from "../ui/Sheet";
 import { ReplayPlayer } from "./ReplayPlayer";
 import { RoomRaidLog } from "./RoomRaidLog";
+import { NudgePanel, type NudgeT } from "./NudgePanel";
 import styles from "./defend.module.css";
 import gameStyles from "../game/game.module.css";
 
@@ -178,6 +179,24 @@ export function DefendEditor({ room, chog, owner }: { room: Room; chog: ChogSumm
   const [sound, setSound] = useState(false);
   const [panel, setPanel] = useState<"none" | "info" | "replay">("none");
   const [replay, setReplay] = useState<LogEntry | null>(null);
+  const [heat, setHeat] = useState<NudgeT | null>(null);
+  const [focusNudge, setFocusNudge] = useState(false);
+
+  // Deep links from raid alerts: ?replay=<raidId> opens that replay, ?nudge=1 opens the heatmap.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    if (q.get("nudge")) setFocusNudge(true);
+    const id = q.get("replay");
+    if (!id) return;
+    fetch(`/api/raids/${encodeURIComponent(id)}/replay`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (!j) return;
+        setReplay({ id: "server", at: 0, outcome: "incomplete", hp: 0, traps: j.traps, moves: j.moves });
+        setPanel("replay");
+      })
+      .catch(() => {});
+  }, []);
 
   const session = useSession();
   const [defense, setDefense] = useState<DefenseState>({ status: "loading" });
@@ -365,6 +384,8 @@ export function DefendEditor({ room, chog, owner }: { room: Room; chog: ChogSumm
                 guards={traps.flatMap((t) => (t.type === "guard" ? [{ x: t.x, y: t.y }] : []))}
                 guardRoutes={guardRoutes}
                 ghostPath={ghostPath}
+                heat={heat?.heat}
+                deaths={heat?.deaths}
                 highlight={pendingDoor ?? (sel ? { x: sel.x, y: sel.y } : null)}
                 onTileTap={onTap}
                 onTrapDrag={onDrag}
@@ -377,6 +398,15 @@ export function DefendEditor({ room, chog, owner }: { room: Room; chog: ChogSumm
           </div>
 
           <aside className={styles.side}>
+            <NudgePanel
+              tokenId={room.tokenId}
+              enabled={defense.status === "ready" && defense.isOwner && defense.defended}
+              focus={focusNudge}
+              onHeat={setHeat}
+              onApply={(next, at) => {
+                if (commit(next, "Suggestion applied. Save to make it live.")) setSelected(next.findIndex((t) => t.x === at.x && t.y === at.y));
+              }}
+            />
             <section className="panel">
               <h3 className={styles.h3}>Traps</h3>
               <div className={styles.palette} role="radiogroup" aria-label="Trap to place">

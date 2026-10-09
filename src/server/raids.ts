@@ -3,7 +3,9 @@
 // whole list with the shared engine, and returns only what the raider can see.
 
 import { randomUUID } from "node:crypto";
+import { roomDifficulty } from "@/config/retention";
 import {
+  findSafePath,
   isMove,
   sampleTraps,
   simulateRaid,
@@ -92,6 +94,8 @@ export async function startRaid(deps: RaidDeps, tokenId: number, raider: string)
     raider,
     practice,
     defender,
+    par: findSafePath(room, traps)?.length ?? null,
+    difficulty: roomDifficulty(room.rules, room.tiles.filter((t) => t === "hazard").length),
     traps,
     moves: "",
     status: "active",

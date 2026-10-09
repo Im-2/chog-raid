@@ -39,7 +39,7 @@ export function SoundToggle({ on, onChange }: { on: boolean; onChange: (v: boole
 }
 
 /** The raid screen. Every move is resolved by the server; the client never sees hidden traps. */
-export function RaidScreen({ room, chog }: { room: Room; chog: ChogSummary }) {
+export function RaidScreen({ room, chog, daily = false }: { room: Room; chog: ChogSummary; daily?: boolean }) {
   const raid = useServerRaid(room.tokenId, room.entrance, room.rules.raiderHp, room.rules.maxMoves);
   const { result } = raid;
   const practice = raid.practice === true;
@@ -100,6 +100,7 @@ export function RaidScreen({ room, chog }: { room: Room; chog: ChogSummary }) {
           <span>
             Chog <span className="num">#{chog.tokenId}</span>
           </span>
+          {daily && <span className="tag">Daily</span>}
           {practice && <span className="tag">Practice</span>}
         </button>
         <div className={styles.topActions}>
@@ -138,7 +139,14 @@ export function RaidScreen({ room, chog }: { room: Room; chog: ChogSummary }) {
               onSwipe={move}
             />
             {showResult && (
-              <ResultCard result={result} movesUsed={raid.movesUsed} tokenId={room.tokenId} onAgain={again} practice={practice} />
+              <ResultCard
+                result={result}
+                movesUsed={raid.movesUsed}
+                tokenId={room.tokenId}
+                onAgain={again}
+                practice={practice}
+                raidId={raid.raidId}
+              />
             )}
             {raid.phase === "starting" && (
               <div className={styles.boardState} role="status">
@@ -157,6 +165,10 @@ export function RaidScreen({ room, chog }: { room: Room; chog: ChogSummary }) {
           <p className={styles.ticker} aria-live="polite">
             {last ? (
               describeEvent(last)
+            ) : daily ? (
+              <>
+                <b>Today&apos;s daily raid.</b> Clear it for bonus points; fewest moves tops the daily board.
+              </>
             ) : practice ? (
               <>No defender yet: you&apos;re raiding <b>practice traps</b>. Reach the glowing door.</>
             ) : (

@@ -1,11 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import { Badges, type BadgeT } from "../progress/bits";
 import styles from "./game.module.css";
 
 type Rec = {
   defended: boolean;
   defender: string | null;
+  defenderId: string | null;
+  defenderBadges: BadgeT[];
   raids: number;
   breaches: number;
   defenseRate: number | null;
@@ -29,7 +33,11 @@ export function RoomRecord({ tokenId }: { tokenId: number }) {
       <p className="small" style={{ margin: "0 0 8px" }}>
         {rec.defended ? (
           <>
-            Defended by <b className="num">{rec.defender}</b>
+            Defended by{" "}
+            <Link href={`/u/${encodeURIComponent(rec.defenderId ?? "")}`}>
+              <b className="num">{rec.defender}</b>
+            </Link>{" "}
+            <Badges badges={rec.defenderBadges} />
           </>
         ) : (
           <>No defender yet: raiders face practice traps.</>

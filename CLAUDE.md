@@ -119,7 +119,7 @@ At each milestone, run the app, check it works, and tell me what to look at befo
 - Commit in small steps with clear messages.
 - Don't hardcode secrets or contract addresses. Use env vars and provide `.env.example`.
 
-## 11. QUEUED: retention and rewards system (start right after milestone 6 is done)
+## 11. Retention and rewards system (built after milestone 6; see src/config/retention.ts, src/server/retention.ts)
 
 Requested by the user on 2026-10-09. Do NOT start before milestones 4-6 are complete; begin immediately after milestone 6. Retention is 20% of the judging score, so this is core, not optional. Keep the engine deterministic and don't break existing features.
 

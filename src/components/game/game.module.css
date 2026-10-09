@@ -454,3 +454,46 @@
   margin: 0;
   font-size: 18px;
 }
+
+/* Points on the result card */
+.reward {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  text-align: left;
+  background: var(--ink);
+  border: 2px solid var(--border);
+}
+.rewardTotal {
+  margin: 0;
+  text-align: center;
+  color: var(--gold);
+  font-size: 15px;
+}
+.rewardTotal b {
+  font-size: 24px;
+  animation: popIn 0.4s cubic-bezier(0.2, 1.6, 0.4, 1);
+  display: inline-block;
+}
+.reward ul {
+  list-style: none;
+  margin: 6px 0;
+  padding: 0;
+  font-size: 13px;
+}
+.reward li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--muted);
+}
+.reward li b {
+  color: var(--text);
+}
+.rewardFoot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding-top: 6px;
+  border-top: 1px solid var(--panel-2);
+}

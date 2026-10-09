@@ -1,6 +1,6 @@
 import type { DefenseRecord, RaidRecord, Store } from "./types";
 
-export type MemoryState = { raids: Record<string, RaidRecord>; defenses: Record<string, DefenseRecord> };
+export type MemoryState = { raids: Record<string, RaidRecord>; defenses: Record<string, DefenseRecord>; kv?: Record<string, unknown> };
 
 /** In-process store. Used by tests, and as the base of the file store. */
 export function createMemoryStore(
@@ -59,6 +59,18 @@ export function createMemoryStore(
     async getDefense(tokenId) {
       const d = state.defenses[String(tokenId)];
       return d ? copy(d) : null;
+    },
+    async getKv<T>(key: string) {
+      const v = state.kv?.[key];
+      return v === undefined ? null : (copy(v) as T);
+    },
+    async setKv(key, value) {
+      state.kv ??= {};
+      state.kv[key] = copy(value);
+      onChange();
+    },
+    async listDefenses() {
+      return Object.values(state.defenses).map(copy);
     },
     async saveDefense(d) {
       state.defenses[String(d.tokenId)] = copy(d);

@@ -17,7 +17,12 @@ Open http://localhost:3000.
 - **Raid a room**: walk from IN to the glowing door with arrow keys / WASD, swipes, or the d-pad. Rooms without a defender use clearly labeled practice traps.
 - **Defend my Chog**: place traps in your Chog's slots, test the room yourself, and replay test raids from the raid log.
 
-- **Leaderboards**: top raiders, Wardens (defenders) and fastest clears per room.
+- **Leaderboards**: weekly seasons with a countdown; Raider and Warden points boards, the daily raid board, fastest clears and all-time stats. Top 3 each season earn a badge.
+- **Come back daily**: one featured room per day (same for everyone) with a bonus and its own board, a raid-day streak, and for holders a "days held" streak, Warden points for every raider who fails in their room, raid alerts with replays, and a "Defend again" heatmap that shows where raiders got through and suggests a fix.
+
+All point values, streak rules, season length and fees live in one file: `src/config/retention.ts`.
+
+**$CHOG prize pool (optional, off by default, simulated):** set `NEXT_PUBLIC_FEATURE_CHOG_TOKEN=true` (or `npm run dev:mock -- --chog`). Your real $CHOG balance is read from Monad; daily-raid entry fees and season payouts are recorded by the game only. No tokens are transferred.
 
 **No wallet or no Chog?** Run `npm run dev:mock` and open http://localhost:3001: generated Chogs, and a **Demo owner** button that signs you in as the holder of Chogs 1-10 so you can save a defense and raid it from another browser. (Offline or no RPC? Set `NFT_ADAPTER=mock` in `.env.local`.)
 

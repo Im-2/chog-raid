@@ -6,11 +6,12 @@ import { useEffect, useState } from "react";
 import { InlineState } from "@/components/ui/StateScreen";
 import { SessionError } from "@/components/wallet/WalletButton";
 import { SiteNav } from "@/components/ui/SiteNav";
+import { WardenPanel } from "@/components/progress/WardenPanel";
 import { shortAddress, signIn, useSession } from "@/components/wallet/session";
 import styles from "../home.module.css";
 import grid from "@/components/home/home.module.css";
 
-type Mine = { tokenId: number; image: string; tier: string | null; defended: boolean; traps: number };
+type Mine = { tokenId: number; image: string; tier: string | null; defended: boolean; traps: number; daysHeld: number | null };
 
 export default function DefendStart() {
   const router = useRouter();
@@ -59,6 +60,8 @@ export default function DefendStart() {
           )}
         </section>
 
+        {session.address && <WardenPanel />}
+
         {session.address && (
           <section>
             <h2 className={grid.h2} style={{ marginBottom: 12 }}>
@@ -93,7 +96,7 @@ export default function DefendStart() {
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={`${c.image}?s=256`} alt={`Chog #${c.tokenId}`} className="pixel" loading="lazy" />
                     <span className={grid.tier} style={c.defended ? undefined : { color: "var(--torch)" }}>
-                      {c.defended ? `Defended · ${c.traps} traps` : "Undefended"}
+                      {c.defended ? `Held ${c.daysHeld ?? 0}d · ${c.traps} traps` : "Undefended"}
                     </span>
                   </div>
                   <div className={grid.cardFoot}>

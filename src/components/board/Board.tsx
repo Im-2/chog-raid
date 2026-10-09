@@ -29,6 +29,10 @@ export type BoardProps = {
   /** Indices into `traps` of lockdoors whose key has been collected. */
   keysHeld?: number[];
   guardRoutes?: Point[][];
+  /** Per-tile counts (row-major) drawn as a heatmap, e.g. where raiders got through. */
+  heat?: number[];
+  /** Where failed raids ended. */
+  deaths?: Point[];
   ghostPath?: Point[];
   highlight?: Point | null;
   sound?: boolean;
@@ -228,6 +232,26 @@ export function Board(props: BoardProps) {
       drawEndpoint(ctx, room.exit, "out", t);
 
       for (const r of p.guardRoutes ?? []) drawGuardRoute(ctx, r);
+
+      if (p.heat?.length) {
+        const max = Math.max(1, ...p.heat);
+        p.heat.forEach((h, i) => {
+          if (!h) return;
+          const k = h / max;
+          ctx.fillStyle = `rgba(255,${Math.round(180 - 140 * k)},40,${0.25 + 0.45 * k})`;
+          ctx.fillRect((i % room.size) * T + 2, Math.floor(i / room.size) * T + 2, T - 4, T - 4);
+        });
+      }
+      for (const d of p.deaths ?? []) {
+        ctx.strokeStyle = "rgba(244,231,208,0.85)";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(d.x * T + 10, d.y * T + 10);
+        ctx.lineTo(d.x * T + T - 10, d.y * T + T - 10);
+        ctx.moveTo(d.x * T + T - 10, d.y * T + 10);
+        ctx.lineTo(d.x * T + 10, d.y * T + T - 10);
+        ctx.stroke();
+      }
 
       ctx.fillStyle = "rgba(244,231,208,0.22)";
       for (const q of path.slice(0, Math.max(0, a.shown))) ctx.fillRect(q.x * T + T / 2 - 3, q.y * T + T / 2 - 3, 6, 6);

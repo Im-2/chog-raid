@@ -1,4 +1,5 @@
 import { raiderLabel } from "@/server/identity";
+import { badgesOf, snapshot } from "@/server/progress";
 import { getStats } from "@/server/stats";
 import { getStore } from "@/server/store";
 
@@ -7,13 +8,15 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const tokenId = Number((await params).id);
   if (!Number.isInteger(tokenId) || tokenId < 1) return Response.json({ error: "Bad token id." }, { status: 400 });
   const store = getStore();
-  const [stats, defense] = await Promise.all([getStats(store), store.getDefense(tokenId)]);
+  const [stats, defense, snap] = await Promise.all([getStats(store), store.getDefense(tokenId), snapshot()]);
   const r = stats.rooms.get(tokenId);
   return Response.json(
     {
       tokenId,
       defended: !!defense,
       defender: defense ? raiderLabel(defense.owner) : null,
+      defenderId: defense?.owner ?? null,
+      defenderBadges: defense ? badgesOf(snap, defense.owner) : [],
       raids: r?.raids ?? 0,
       breaches: r?.breaches ?? 0,
       defenseRate: r?.defenseRate ?? null,

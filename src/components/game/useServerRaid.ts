@@ -9,6 +9,7 @@ export type ServerRaid = RaidView & {
   phase: "starting" | "ready" | "error";
   error: string | null;
   practice: boolean | null;
+  raidId: string | null;
   /** A move is on its way to the server. */
   busy: boolean;
   retry(): void;
@@ -153,6 +154,7 @@ export function useServerRaid(tokenId: number, entrance: { x: number; y: number 
     phase,
     error,
     practice: view?.practice ?? null,
+    raidId: view?.raidId ?? null,
     busy,
     retry,
   };

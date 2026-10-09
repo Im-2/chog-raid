@@ -13,6 +13,10 @@ export type RaidRecord = {
   practice: boolean;
   /** Who defended the room when the raid started (the defense's owner); null for practice. */
   defender: string | null;
+  /** Shortest safe path (moves) through the room and traps at raid start; the fast-clear target. */
+  par?: number | null;
+  /** Room difficulty 1-5 at raid start (see roomDifficulty). */
+  difficulty?: number;
   /** Traps as they were when the raid started, so replays stay exact after edits. */
   traps: Trap[];
   moves: string;
@@ -45,4 +49,8 @@ export interface Store {
   /** Saved defense for a room. */
   getDefense(tokenId: number): Promise<DefenseRecord | null>;
   saveDefense(d: DefenseRecord): Promise<void>;
+  listDefenses(): Promise<DefenseRecord[]>;
+  /** Small key-value state (alert read markers, simulated $CHOG ledger). */
+  getKv<T>(key: string): Promise<T | null>;
+  setKv(key: string, value: unknown): Promise<void>;
 }

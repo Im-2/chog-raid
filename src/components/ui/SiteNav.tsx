@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { NavChips } from "../progress/NavChips";
 import { WalletButton } from "../wallet/WalletButton";
 import styles from "./nav.module.css";
 
@@ -12,6 +13,7 @@ export function SiteNav() {
         <Link href="/leaderboards">Leaderboards</Link>
         <Link href="/defend">Defend</Link>
       </nav>
+      <NavChips />
       <WalletButton compact />
     </header>
   );

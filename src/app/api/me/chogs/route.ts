@@ -1,4 +1,6 @@
 import { getNftAdapter } from "@/nft";
+import { snapshot } from "@/server/progress";
+import { daysHeld } from "@/server/retention";
 import { sessionAddress } from "@/server/session";
 import { getStore } from "@/server/store";
 
@@ -10,6 +12,7 @@ export async function GET() {
     const adapter = getNftAdapter();
     const ids = (await adapter.ownedBy(address)).slice(0, 60);
     const store = getStore();
+    const snap = await snapshot();
     const chogs = await Promise.all(
       ids.map(async (tokenId) => {
         const [chog, defense] = await Promise.all([adapter.getChog(tokenId).catch(() => null), store.getDefense(tokenId)]);
@@ -19,6 +22,7 @@ export async function GET() {
           tier: chog?.traits.find((t) => t.trait_type === "Tier")?.value ?? null,
           defended: !!defense,
           traps: defense?.traps.length ?? 0,
+          daysHeld: defense ? daysHeld(snap.raids, tokenId, defense.updatedAt, new Date()) : null,
         };
       }),
     );

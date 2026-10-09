@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { RoomBrowser } from "@/components/home/RoomBrowser";
+import { DailyCard } from "@/components/progress/DailyCard";
 import { SiteNav } from "@/components/ui/SiteNav";
 import styles from "./home.module.css";
 
@@ -32,6 +33,10 @@ export default function Home() {
             </Link>
           </div>
         </section>
+
+        <div className="container">
+          <DailyCard />
+        </div>
 
         <section className="container" id="rooms">
           <RoomBrowser />
