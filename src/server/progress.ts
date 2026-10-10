@@ -124,3 +124,59 @@ export function daily(snap: Snapshot, me: string | null, now = new Date()) {
 export function awardFor(snap: Snapshot, raidId: string): Award | null {
   return snap.awards.find((a) => a.raidId === raidId && a.role === "raider") ?? null;
 }
+
+export type RoomBest = { attempts: number; cleared: boolean; bestMoves: number | null; lastOutcome: string | null };
+
+/** This player's results per room: attempts, whether cleared, fewest moves on a clear. */
+export function myRooms(snap: Snapshot, me: string): Map<number, RoomBest> {
+  const out = new Map<number, RoomBest>();
+  const mine = snap.raids.filter((r) => lc(r.raider) === lc(me)).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  for (const r of mine) {
+    const b = out.get(r.tokenId) ?? { attempts: 0, cleared: false, bestMoves: null, lastOutcome: null };
+    b.attempts++;
+    b.lastOutcome = r.status;
+    if (r.status === "breach") {
+      b.cleared = true;
+      b.bestMoves = b.bestMoves === null ? r.moves.length : Math.min(b.bestMoves, r.moves.length);
+    }
+    out.set(r.tokenId, b);
+  }
+  return out;
+}
+
+export type NextRoom = { tokenId: number; reason: string };
+
+/**
+ * A room to play next: today's daily raid if you haven't cleared it, else a room you haven't
+ * cleared at a similar difficulty, else any room you haven't cleared.
+ */
+export function suggestNextRoom(
+  snap: Snapshot,
+  me: string | null,
+  from: number,
+  difficulty: (tokenId: number) => number | null,
+  candidates: { tokenId: number; difficulty: number }[],
+  now = new Date(),
+): NextRoom {
+  const rooms = me ? myRooms(snap, me) : new Map<number, RoomBest>();
+  const cleared = (id: number) => rooms.get(id)?.cleared ?? false;
+  const today = dailyTokenId(dayKey(now), snap.supply);
+  const doneDaily = me ? dailyBoard(snap.raids, dayKey(now), today).some((e) => lc(e.raider) === lc(me)) : false;
+  if (today !== from && !doneDaily) return { tokenId: today, reason: "Today's daily raid" };
+
+  // Seeded pick, so the suggestion is stable for this player and room but differs between rooms.
+  let seed = 0;
+  for (const ch of `${me ?? "anon"}:${from}`) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
+  const pickFrom = <T,>(list: T[]) => list[seed % list.length];
+
+  const d = difficulty(from);
+  if (d !== null) {
+    const similar = candidates.filter((c) => c.tokenId !== from && !cleared(c.tokenId) && Math.abs(c.difficulty - d) <= 1);
+    if (similar.length) return { tokenId: pickFrom(similar).tokenId, reason: "Similar difficulty, not cleared yet" };
+  }
+  for (let i = 0; i < snap.supply; i++) {
+    const id = 1 + ((seed + i * 7919) % snap.supply);
+    if (id !== from && !cleared(id)) return { tokenId: id, reason: "Not cleared yet" };
+  }
+  return { tokenId: 1 + (seed % snap.supply), reason: "Random room" };
+}

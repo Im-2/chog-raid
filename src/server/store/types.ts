@@ -44,7 +44,7 @@ export interface Store {
   abandonActive(raider: string, tokenId: number): Promise<void>;
   /** Newest first. */
   listRaids(tokenId: number, limit: number): Promise<RaidRecord[]>;
-  /** Finished raids (breach / dead / exhausted) across all rooms, newest first. */
+  /** Finished raids (breach / defeated / out_of_moves) across all rooms, newest first. */
   listFinishedRaids(limit: number): Promise<RaidRecord[]>;
   /** Saved defense for a room. */
   getDefense(tokenId: number): Promise<DefenseRecord | null>;
@@ -53,4 +53,9 @@ export interface Store {
   /** Small key-value state (alert read markers, simulated $CHOG ledger). */
   getKv<T>(key: string): Promise<T | null>;
   setKv(key: string, value: unknown): Promise<void>;
+}
+
+/** Raids stored before the outcome rename used "dead" / "exhausted". */
+export function normalizeStatus(s: string): RaidStatus {
+  return s === "dead" ? "defeated" : s === "exhausted" ? "out_of_moves" : (s as RaidStatus);
 }

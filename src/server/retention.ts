@@ -32,7 +32,7 @@ export function dailyTokenId(day: string, supply: number): number {
 export type AwardPart = { label: string; points: number };
 export type Award = { raidId: string; who: string; role: "raider" | "warden"; season: number; points: number; parts: AwardPart[] };
 
-const finished = (r: RaidRecord) => r.status === "breach" || r.status === "dead" || r.status === "exhausted";
+const finished = (r: RaidRecord) => r.status === "breach" || r.status === "defeated" || r.status === "out_of_moves";
 const lc = (s: string) => s.toLowerCase();
 
 /**

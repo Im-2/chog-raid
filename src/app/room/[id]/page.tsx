@@ -1,3 +1,4 @@
+import { chogName } from "@/lib/names";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { RaidScreen } from "@/components/game/RaidScreen";
@@ -8,7 +9,7 @@ import { dailyTokenId, dayKey } from "@/server/retention";
 type Props = { params: Promise<{ id: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  return { title: `Raid Chog #${(await params).id} · Chog Raid` };
+  return { title: `Raid ${chogName(Number((await params).id))} · Chog Raid` };
 }
 
 export default async function RoomPage({ params }: Props) {

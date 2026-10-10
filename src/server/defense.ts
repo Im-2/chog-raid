@@ -1,6 +1,7 @@
 // Owner-only trap saving. Ownership is re-checked onchain (ownerOf) on every read and save,
 // so when a Chog is transferred the new holder takes over the room immediately.
 
+import { chogName } from "@/lib/names";
 import { GAME, validateTraps, type Trap } from "@/engine";
 import { sameAddress } from "./auth";
 import type { RaidDeps, Result } from "./raids";
@@ -74,7 +75,7 @@ export async function saveDefense(deps: RaidDeps, tokenId: number, wallet: strin
   if (!traps) return { ok: false, status: 400, error: "Those traps don't look right." };
   const [room, owner] = await Promise.all([deps.getRoom(tokenId), deps.ownerOf(tokenId)]);
   if (!room || !owner) return { ok: false, status: 404, error: "No such Chog." };
-  if (!sameAddress(owner, wallet)) return { ok: false, status: 403, error: `Only the holder of Chog #${tokenId} can defend it.` };
+  if (!sameAddress(owner, wallet)) return { ok: false, status: 403, error: `Only the holder of ${chogName(tokenId)} can defend it.` };
   const check = validateTraps(room, traps);
   if (!check.ok) return { ok: false, status: 422, error: check.error };
   const updatedAt = new Date().toISOString();

@@ -346,7 +346,7 @@ export function DefendEditor({ room, chog, owner }: { room: Room; chog: ChogSumm
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={`${chog.image}?s=128`} alt="" width={32} height={32} className="pixel" />
           <span>
-            Defend <span className="num">#{chog.tokenId}</span>
+            Defend <span className="num">{chog.name}</span>
           </span>
         </button>
         <div className={gameStyles.topActions}>
@@ -518,7 +518,7 @@ export function DefendEditor({ room, chog, owner }: { room: Room; chog: ChogSumm
                   {log.map((e) => (
                     <li key={e.id}>
                       <span className={styles.outcome} data-won={e.outcome === "breach" || undefined}>
-                        {e.outcome === "breach" ? "Breached" : e.outcome === "dead" ? "Died" : "No moves"}
+                        {e.outcome === "breach" ? "Breached" : e.outcome === "defeated" ? "Died" : "No moves"}
                       </span>
                       <span className="small muted">
                         Test · {e.moves.length} moves · {new Date(e.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}

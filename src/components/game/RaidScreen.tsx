@@ -98,7 +98,7 @@ export function RaidScreen({ room, chog, daily = false }: { room: Room; chog: Ch
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={`${chog.image}?s=128`} alt="" width={32} height={32} className="pixel" />
           <span>
-            Chog <span className="num">#{chog.tokenId}</span>
+            <span className="num">{chog.name}</span>
           </span>
           {daily && <span className="tag">Daily</span>}
           {practice && <span className="tag">Practice</span>}
@@ -143,6 +143,7 @@ export function RaidScreen({ room, chog, daily = false }: { room: Room; chog: Ch
                 result={result}
                 movesUsed={raid.movesUsed}
                 tokenId={room.tokenId}
+                exit={room.exit}
                 onAgain={again}
                 practice={practice}
                 raidId={raid.raidId}

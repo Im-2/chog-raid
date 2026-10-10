@@ -14,9 +14,9 @@ export function describeEvent(e: RaidEvent): string {
       return "Bumped into a wall";
     case "breach":
       return "Reached the exit";
-    case "dead":
+    case "defeated":
       return "You died";
-    case "exhausted":
+    case "out_of_moves":
       return "Out of moves";
   }
 }
@@ -24,8 +24,8 @@ export function describeEvent(e: RaidEvent): string {
 /** One line for the result card: what ended the raid. */
 export function causeOfEnd(r: RaidResult): string {
   if (r.outcome === "breach") return `Breached with ${r.hp} HP to spare.`;
-  if (r.outcome === "exhausted") return "Ran out of moves before reaching the exit.";
+  if (r.outcome === "out_of_moves") return "Ran out of moves before reaching the exit.";
   const last = [...r.events].reverse().find((e) => e.kind === "damage");
   const what = last?.source === "spike" ? "a hidden spike" : last?.source === "guard" ? "a patrolling guard" : "a hazard";
-  return `Killed by ${what} at tile ${r.endAt.x},${r.endAt.y}.`;
+  return `Killed by ${what}.`;
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { chogName } from "@/lib/names";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useSession } from "../wallet/session";
@@ -10,7 +11,7 @@ export type AlertT = {
   raidId: string;
   tokenId: number;
   raider: string;
-  outcome: "breach" | "dead" | "exhausted";
+  outcome: "breach" | "defeated" | "out_of_moves";
   moves: number;
   at: string;
   unread: boolean;
@@ -26,7 +27,7 @@ export function AlertList({ alerts, onNavigate }: { alerts: AlertT[]; onNavigate
         return (
           <li key={a.raidId} className={styles.alert} data-outcome={breach ? "breach" : "held"} data-unread={a.unread || undefined}>
             <p>
-              <b>{a.raider}</b> {breach ? "broke into" : "failed in"} <b className="num">Chog #{a.tokenId}</b>{" "}
+              <b>{a.raider}</b> {breach ? "broke into" : "failed in"} <b className="num">{chogName(a.tokenId)}</b>{" "}
               <span className={styles.muted}>
                 · {a.moves} moves · {new Date(a.at).toLocaleString([], { dateStyle: "short", timeStyle: "short" })}
               </span>

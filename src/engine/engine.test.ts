@@ -218,7 +218,7 @@ describe("raid simulation", () => {
   it("spikes hurt and can kill", () => {
     const spikes: Trap[] = [1, 2, 3].map((x) => ({ type: "spike", x, y: 1 }));
     const res = simulateRaid(room, spikes, R(3));
-    expect(res.outcome).toBe("dead");
+    expect(res.outcome).toBe("defeated");
     expect(res.endAt).toEqual({ x: 3, y: 1 });
   });
 
@@ -247,7 +247,7 @@ describe("raid simulation", () => {
 
   it("runs out of moves", () => {
     const res = simulateRaid(room, [], new Array(GAME.maxMoves).fill("U"));
-    expect(res.outcome).toBe("exhausted");
+    expect(res.outcome).toBe("out_of_moves");
   });
 
   it("rejects invalid moves", () => {

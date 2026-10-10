@@ -134,8 +134,8 @@ export function createOnchainAdapter(): NftAdapter {
       .map((a) => ({ trait_type: String(a.trait_type), value: String(a.value) }));
     return {
       tokenId,
-      // Metadata names use shuffled file numbers; the token id is what ownerOf and the app use.
-      name: `Chog #${tokenId}`,
+      // The official name (e.g. "CHOG #1514"). Its number differs from the token id.
+      name: json.name ?? `Chog #${tokenId}`,
       image: `/api/chogs/${tokenId}/image`,
       imageSource: json.image,
       traits,

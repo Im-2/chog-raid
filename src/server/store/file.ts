@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { createMemoryStore, type MemoryState } from "./memory";
-import type { Store } from "./types";
+import { normalizeStatus, type Store } from "./types";
 
 /**
  * Single-process JSON file store for local dev and single-server demos.
@@ -12,6 +12,7 @@ export function createFileStore(dir: string): Store {
   let state: MemoryState = { raids: {}, defenses: {} };
   try {
     state = { ...state, ...JSON.parse(fs.readFileSync(file, "utf8")) };
+    for (const r of Object.values(state.raids)) r.status = normalizeStatus(r.status);
   } catch {}
 
   let timer: NodeJS.Timeout | null = null;

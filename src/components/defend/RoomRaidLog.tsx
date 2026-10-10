@@ -73,7 +73,7 @@ export function RoomRaidLog({ tokenId, onReplay }: { tokenId: number; onReplay: 
         {rows.map((r) => (
           <li key={r.id}>
             <span className={styles.outcome} data-won={r.status === "breach" || undefined} data-live={r.status === "active" || undefined}>
-              {r.status === "breach" ? "Breached" : r.status === "dead" ? "Died" : r.status === "active" ? "Live" : "No moves"}
+              {r.status === "breach" ? "Breached" : r.status === "defeated" ? "Died" : r.status === "active" ? "Live" : "No moves"}
             </span>
             <span className="small muted">
               {r.mine ? "You" : r.raider} · {r.moves} moves · {ago(r.createdAt)}

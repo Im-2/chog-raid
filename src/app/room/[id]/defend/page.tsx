@@ -1,3 +1,4 @@
+import { chogName } from "@/lib/names";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { DefendEditor } from "@/components/defend/DefendEditor";
@@ -7,7 +8,7 @@ import { loadRoom } from "@/lib/rooms";
 type Props = { params: Promise<{ id: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  return { title: `Defend Chog #${(await params).id} · Chog Raid` };
+  return { title: `Defend ${chogName(Number((await params).id))} · Chog Raid` };
 }
 
 export default async function DefendPage({ params }: Props) {

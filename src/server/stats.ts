@@ -30,7 +30,7 @@ export type Stats = {
   totalRaids: number;
 };
 
-const finished = (r: RaidRecord) => r.status === "breach" || r.status === "dead" || r.status === "exhausted";
+const finished = (r: RaidRecord) => r.status === "breach" || r.status === "defeated" || r.status === "out_of_moves";
 
 export function computeStats(raids: RaidRecord[]): Stats {
   // Oldest first, so "first to set the record" wins ties.

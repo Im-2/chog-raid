@@ -98,11 +98,11 @@ export function simulateRaid(room: Room, traps: Trap[], moves: readonly Move[]):
     }
 
     if (hp <= 0) {
-      outcome = "dead";
-      events.push({ step: s, kind: "dead", at: pos });
+      outcome = "defeated";
+      events.push({ step: s, kind: "defeated", at: pos });
     } else if (movesLeft <= 0) {
-      outcome = "exhausted";
-      events.push({ step: s, kind: "exhausted", at: pos });
+      outcome = "out_of_moves";
+      events.push({ step: s, kind: "out_of_moves", at: pos });
     }
   }
 

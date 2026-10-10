@@ -1,5 +1,6 @@
 "use client";
 
+import { chogName } from "@/lib/names";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Countdown } from "./bits";
@@ -39,14 +40,14 @@ export function DailyCard() {
     <section className={styles.card} aria-labelledby="daily-title">
       <Link href={`/room/${d.tokenId}`} className={styles.art}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={`/api/chogs/${d.tokenId}/image?s=256`} alt={`Chog #${d.tokenId}`} className="pixel" />
+        <img src={`/api/chogs/${d.tokenId}/image?s=256`} alt={chogName(d.tokenId)} className="pixel" />
       </Link>
       <div className={styles.body}>
         <p className={styles.kicker}>
           Daily raid · ends in <Countdown to={d.endsAt} />
         </p>
         <h2 id="daily-title" className={styles.title}>
-          Chog <span className="num">#{d.tokenId}</span>
+          <span className="num">{chogName(d.tokenId)}</span>
         </h2>
         <p className="small muted" style={{ margin: "0 0 10px" }}>
           Same room for everyone today. Clear it for <b style={{ color: "var(--gold)" }}>+{d.bonus}</b> bonus points.

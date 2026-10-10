@@ -1,0 +1,19 @@
+/* Fixed behind everything: no layout impact, never receives clicks. */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 0;
+  opacity: 0.22;
+  pointer-events: none;
+  /* Fade the scene out toward the bottom so the room grid stays calm. */
+  mask-image: linear-gradient(to bottom, #000 0%, #000 55%, transparent 95%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 55%, transparent 95%);
+}
+
+/* Page content sits above the backdrop. */
+.above {
+  position: relative;
+  z-index: 1;
+}

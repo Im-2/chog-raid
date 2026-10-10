@@ -51,6 +51,9 @@ export function useServerRaid(tokenId: number, entrance: { x: number; y: number 
   const viewRef = useRef<ServerView | null>(null);
   const sending = useRef(false);
   const generation = useRef(0);
+  const started = useRef<number | null>(null);
+  /** The server no longer knows this raid (e.g. replaced from another tab): retry starts a new one. */
+  const lost = useRef(false);
 
   const apply = (v: ServerView) => {
     viewRef.current = v;
@@ -59,6 +62,7 @@ export function useServerRaid(tokenId: number, entrance: { x: number; y: number 
 
   const start = useCallback(async () => {
     const gen = ++generation.current;
+    lost.current = false;
     queue.current = [];
     sending.current = false;
     setBusy(false);
@@ -96,7 +100,8 @@ export function useServerRaid(tokenId: number, entrance: { x: number; y: number 
           apply(r.data.view);
           if (r.data.view.status === "abandoned") throw new Error("You started this room again somewhere else.");
         } else {
-          throw new Error(r.data.error ?? "The move didn't go through.");
+          if (r.status === 404 || r.status === 403) lost.current = true;
+          throw new Error(lost.current ? "This raid was closed. Start a fresh one." : (r.data.error ?? "The move didn't go through."));
         }
       }
     } catch (e) {
@@ -111,9 +116,13 @@ export function useServerRaid(tokenId: number, entrance: { x: number; y: number 
     }
   }, []);
 
+  // Start exactly once per room. React dev mode runs effects twice; a second start would race the
+  // first on the server and could close the raid this page is actually playing.
   useEffect(() => {
+    if (started.current === tokenId) return;
+    started.current = tokenId;
     void start();
-  }, [start]);
+  }, [start, tokenId]);
 
   const move = useCallback(
     (m: Move) => {
@@ -126,7 +135,7 @@ export function useServerRaid(tokenId: number, entrance: { x: number; y: number 
   );
 
   const retry = useCallback(() => {
-    if (!viewRef.current || viewRef.current.status === "abandoned") return void start();
+    if (!viewRef.current || lost.current || viewRef.current.status === "abandoned") return void start();
     setError(null);
     setPhase("ready");
     void pump();

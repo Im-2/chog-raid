@@ -1,3 +1,4 @@
+import { chogName } from "@/lib/names";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { RETENTION } from "@/config/retention";
@@ -98,7 +99,7 @@ export default async function Leaderboards() {
               content: (
                 <>
                   <p className="small" style={{ marginTop: 0 }}>
-                    Today&apos;s room: <Link href={`/room/${today.tokenId}`}>Chog #{today.tokenId}</Link> · fewest moves wins · ends in{" "}
+                    Today&apos;s room: <Link href={`/room/${today.tokenId}`}>{chogName(today.tokenId)}</Link> · fewest moves wins · ends in{" "}
                     <Countdown to={today.endsAt} />
                   </p>
                   {today.board.length ? (
@@ -148,7 +149,7 @@ export default async function Leaderboards() {
                           <Link href={`/room/${r.tokenId}`} className={styles.room}>
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img src={`/api/chogs/${r.tokenId}/image?s=128`} alt="" width={28} height={28} className="pixel" />
-                            <span className="num">#{r.tokenId}</span>
+                            <span className="num">{chogName(r.tokenId)}</span>
                           </Link>
                         </td>
                         <td className="num">{r.fastestClear!.moves}</td>

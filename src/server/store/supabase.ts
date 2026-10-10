@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import type { DefenseRecord, RaidRecord, Store } from "./types";
+import { normalizeStatus, type DefenseRecord, type RaidRecord, type Store } from "./types";
 
 type RaidRow = {
   id: string;
@@ -51,7 +51,7 @@ const fromRow = (r: RaidRow): RaidRecord => ({
   difficulty: r.difficulty ?? undefined,
   traps: r.traps,
   moves: r.moves,
-  status: r.status,
+  status: normalizeStatus(r.status),
   hp: r.hp,
   movesLeft: r.moves_left,
   endX: r.end_x,
@@ -105,7 +105,7 @@ export function createSupabaseStore(url: string, serviceKey: string): Store {
         await db
           .from("raids")
           .select("id,token_id,raider,practice,defender,par,difficulty,moves,status,hp,moves_left,end_x,end_y,created_at,updated_at")
-          .in("status", ["breach", "dead", "exhausted"])
+          .in("status", ["breach", "defeated", "out_of_moves"])
           .order("created_at", { ascending: false })
           .limit(limit),
       );

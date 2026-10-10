@@ -30,6 +30,7 @@ With a real wallet: Connect wallet signs a Sign-In with Ethereum message (no gas
 
 ## How it works
 
+- **Names vs token ids**: the official name (e.g. token 53 is "CHOG #1514"; "CHOG #53 — Blaze" is token 561) is shown everywhere and used for search. Token ids are only used for routes and contract calls. The index is `src/data/chog-names.json`; refresh it with `node scripts/fetch-metadata.mjs .cache/meta && node scripts/build-name-index.mjs .cache/meta/chog-metadata.json`.
 - **Real data** (`src/nft/onchain.ts`): `tokenURI` is read on Monad with viem, the metadata JSON is fetched through IPFS gateways, and the image is taken from the metadata's `image` field. Art is cached on disk in `.cache/`.
 - **Room generation** (`src/engine/generate.ts`): the art is downsampled to 16x16, keeping the hand-drawn ink lines (`src/nft/pixels.ts`). Dark lines become walls, blue becomes water (slow), and saturated red becomes embers (damage). A path from entrance to exit is always carved, so every room is beatable.
 - **Traits** shape each room through one table: `src/engine/traitRules.ts` (trap slots, unlocked trap types, extra embers).

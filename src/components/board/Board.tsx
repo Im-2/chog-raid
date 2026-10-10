@@ -1,5 +1,6 @@
 "use client";
 
+import { chogName } from "@/lib/names";
 import { useEffect, useRef } from "react";
 import type { Move, Point, RaidEvent, RaidOutcome, Room, Trap } from "@/engine";
 import { playSfx, type Sfx } from "@/lib/sound";
@@ -71,6 +72,7 @@ export function Board(props: BoardProps) {
     flashUntil: 0,
     victoryAt: 0,
     deadAt: 0,
+    stalledAt: 0,
     particles: [] as Particle[],
     floaters: [] as Floater[],
   });
@@ -135,7 +137,14 @@ export function Board(props: BoardProps) {
           burst(e.at, COLORS.gold, 60, 260);
           sfx("win");
           break;
-        case "dead":
+        case "out_of_moves":
+          a.stalledAt = now;
+          a.shakeUntil = now + 250;
+          a.shakeMag = 4;
+          a.floaters.push({ x: e.at.x * T + T / 2, y: e.at.y * T, text: "OUT OF MOVES", color: COLORS.steel, born: now });
+          sfx("lose");
+          break;
+        case "defeated":
           a.deadAt = now;
           a.shakeUntil = now + 450;
           a.shakeMag = 10;
@@ -162,6 +171,7 @@ export function Board(props: BoardProps) {
         a.floaters = [];
         a.victoryAt = 0;
         a.deadAt = 0;
+        a.stalledAt = 0;
         if (path.length) a.raider = { x: path[path.length - 1].x * T, y: path[path.length - 1].y * T };
       }
       if (a.shown < 0 && path.length) {
@@ -267,11 +277,20 @@ export function Board(props: BoardProps) {
         drawGuard(ctx, (f.x + (g.x - f.x) * gk) * T, (f.y + (g.y - f.y) * gk) * T);
       });
 
-      const dead = p.outcome === "dead" && a.shown === path.length - 1 && !a.seg;
+      const settled = a.shown === path.length - 1 && !a.seg;
+      const dead = p.outcome === "defeated" && settled;
+      const stalled = p.outcome === "out_of_moves" && settled;
       if (path.length) {
         if (dead) {
           drawRaider(ctx, a.raider.x, a.raider.y, t, true);
           drawSkull(ctx, path[path.length - 1]);
+        } else if (stalled) {
+          drawRaider(ctx, a.raider.x, a.raider.y, t, true);
+          const end = path[path.length - 1];
+          const r = T * (0.55 + 0.1 * Math.sin(t * 4));
+          ctx.strokeStyle = COLORS.steel;
+          ctx.lineWidth = 3;
+          ctx.strokeRect(end.x * T + T / 2 - r, end.y * T + T / 2 - r, r * 2, r * 2);
         } else {
           drawRaider(ctx, a.raider.x, a.raider.y, t);
         }
@@ -338,6 +357,16 @@ export function Board(props: BoardProps) {
       ctx.globalAlpha = 1;
       ctx.restore();
 
+      if (a.stalledAt) {
+        ctx.fillStyle = `rgba(20,16,12,${0.45 * Math.min(1, (now - a.stalledAt) / 500)})`;
+        ctx.fillRect(0, 0, W, W);
+        if (path.length) {
+          const end = path[path.length - 1];
+          ctx.strokeStyle = COLORS.steel;
+          ctx.lineWidth = 3;
+          ctx.strokeRect(end.x * T + 2, end.y * T + 2, T - 4, T - 4);
+        }
+      }
       if (a.deadAt) {
         const v = ctx.createRadialGradient(W / 2, W / 2, W * 0.25, W / 2, W / 2, W * 0.75);
         v.addColorStop(0, "rgba(120,0,0,0)");
@@ -374,7 +403,7 @@ export function Board(props: BoardProps) {
       height={props.room.size * T}
       className="pixel"
       role="img"
-      aria-label={props.label ?? `Room of Chog #${props.room.tokenId}`}
+      aria-label={props.label ?? `Room of ${chogName(props.room.tokenId)}`}
       style={{ width: "100%", height: "100%", display: "block", touchAction: "none" }}
       onPointerDown={(e) => {
         const p = toTile(e);

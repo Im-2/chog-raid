@@ -1,3 +1,4 @@
+import { chogName, tokenIdForNumber } from "@/lib/names";
 import "server-only";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -19,7 +20,7 @@ export type RoomCard = {
   defenseRate?: number;
 };
 
-export type RoomSort = "id" | "hardest" | "raided" | "undefended";
+export type RoomSort = "id" | "hardest" | "raided" | "undefended" | "uncleared";
 
 /** How hard a room is to raid, from its trait-derived rules (more slots, more trap types, more embers). */
 export function difficultyOf(traits: Trait[]): number {
@@ -43,6 +44,11 @@ function toCard(c: Chog): RoomCard {
 const index = new Map<number, RoomCard>();
 let warming: Promise<void> | null = null;
 const indexFile = () => path.join(env.cacheDir, `collection-${getNftAdapter().mode}.json`);
+
+/** Cards indexed so far (the whole collection once warm). */
+export function indexedCards(): RoomCard[] {
+  return [...index.values()];
+}
 
 export function indexProgress() {
   return { done: index.size, warming: !!warming };
@@ -82,13 +88,15 @@ export function warmIndex(total: number): void {
   })().finally(() => (warming = null));
 }
 
-export async function listRooms(opts: { sort: RoomSort; page: number; pageSize: number; q?: number }) {
+export async function listRooms(opts: { sort: RoomSort; page: number; pageSize: number; q?: number; exclude?: Set<number> }) {
   const adapter = getNftAdapter();
   const total = await adapter.totalSupply();
 
   if (opts.q !== undefined) {
-    const c = await adapter.getChog(opts.q);
-    return { items: c ? [toCard(c)] : [], total: c ? 1 : 0, hasMore: false };
+    // Search by the name number shown on OpenSea first; a token id match comes second.
+    const ids = [...new Set([tokenIdForNumber(opts.q), opts.q <= total ? opts.q : null].filter((x): x is number => !!x))];
+    const found = (await Promise.all(ids.map((id) => adapter.getChog(id).catch(() => null)))).filter((c): c is Chog => !!c);
+    return { items: found.map(toCard), total: found.length, hasMore: false };
   }
 
   if (opts.sort === "raided" || opts.sort === "undefended") {
@@ -100,7 +108,7 @@ export async function listRooms(opts: { sort: RoomSort; page: number; pageSize: 
     const chogs = await Promise.all(slice.map((r) => adapter.getChog(r.tokenId).catch(() => null)));
     const items = slice.map((r, i): RoomCard => {
       const c = chogs[i];
-      const base = c ? toCard(c) : { tokenId: r.tokenId, name: `Chog #${r.tokenId}`, image: `/api/chogs/${r.tokenId}/image`, difficulty: 0 };
+      const base = c ? toCard(c) : { tokenId: r.tokenId, name: chogName(r.tokenId), image: `/api/chogs/${r.tokenId}/image`, difficulty: 0 };
       return { ...base, raids: r.raids, defenseRate: r.defenseRate };
     });
     return { items, total: ordered.length, hasMore: start + opts.pageSize < ordered.length };
@@ -118,14 +126,16 @@ export async function listRooms(opts: { sort: RoomSort; page: number; pageSize: 
     };
   }
 
+  // Token order, optionally skipping rooms (e.g. ones you already cleared).
+  const all = Array.from({ length: total }, (_, i) => i + 1).filter((id) => !opts.exclude?.has(id));
   const start = opts.page * opts.pageSize;
-  const ids = Array.from({ length: Math.max(0, Math.min(opts.pageSize, total - start)) }, (_, i) => start + i + 1);
+  const ids = all.slice(start, start + opts.pageSize);
   const chogs = await Promise.all(ids.map((id) => adapter.getChog(id).catch(() => null)));
   // Keep cards for Chogs whose metadata timed out; their room page retries on open.
   const items = ids.map((id, i): RoomCard => {
     const c = chogs[i];
-    return c ? toCard(c) : { tokenId: id, name: `Chog #${id}`, image: `/api/chogs/${id}/image`, difficulty: 0 };
+    return c ? toCard(c) : { tokenId: id, name: chogName(id), image: `/api/chogs/${id}/image`, difficulty: 0 };
   });
   items.forEach((c) => c.difficulty && index.set(c.tokenId, c));
-  return { items, total, hasMore: start + opts.pageSize < total };
+  return { items, total: all.length, hasMore: start + opts.pageSize < all.length };
 }

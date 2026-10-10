@@ -13,7 +13,7 @@ function raid(p: Partial<RaidRecord>): RaidRecord {
     defender: "0xOwner",
     traps: [],
     moves: "RRRR",
-    status: "dead",
+    status: "defeated",
     hp: 0,
     movesLeft: 0,
     endX: 0,
@@ -28,10 +28,10 @@ describe("stats", () => {
   const raids = [
     raid({ raider: "guest:a", status: "breach", moves: "R".repeat(20) }),
     raid({ raider: "guest:b", status: "breach", moves: "R".repeat(15) }),
-    raid({ raider: "guest:b", status: "dead" }),
-    raid({ raider: "guest:c", status: "exhausted" }),
+    raid({ raider: "guest:b", status: "defeated" }),
+    raid({ raider: "guest:c", status: "out_of_moves" }),
     raid({ tokenId: 2, raider: "guest:a", status: "breach", moves: "R".repeat(15), practice: true, defender: null }),
-    raid({ tokenId: 1, raider: "0xowner", status: "dead" }), // holder raiding own room
+    raid({ tokenId: 1, raider: "0xowner", status: "defeated" }), // holder raiding own room
     raid({ tokenId: 3, status: "active" }),
     raid({ tokenId: 3, status: "abandoned" }),
   ];

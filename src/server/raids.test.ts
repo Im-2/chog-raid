@@ -112,6 +112,46 @@ describe("server raids", () => {
     expect(JSON.stringify(log)).not.toContain("traps");
   });
 
+  it("ends the raid with out_of_moves when moves hit 0, and rejects further moves", async () => {
+    const { deps, store, room } = setup([]);
+    const v0 = ok(await startRaid(deps, 42, "alice"));
+    // Bumping into the left edge from the entrance costs a move each time and never moves you.
+    const bumps = new Array(room.rules.maxMoves).fill("L") as Move[];
+    const last = await play(deps, v0.raidId, bumps);
+    expect(last.outcome).toBe("out_of_moves");
+    expect(last.status).toBe("out_of_moves");
+    expect(last.movesLeft).toBe(0);
+    const after = await applyMove(deps, v0.raidId, "alice", "R", bumps.length);
+    expect(after.ok).toBe(false);
+    if (!after.ok) {
+      expect(after.status).toBe(409);
+      expect(after.view?.status).toBe("out_of_moves");
+    }
+    expect((await store.getRaid(v0.raidId))!.status).toBe("out_of_moves");
+  });
+
+  it("ends the raid with defeated when HP hits 0, and rejects further moves", async () => {
+    // A corridor of embers: each step costs 1 HP, so 5 steps kill a 5 HP raider.
+    const base = room(42);
+    const n = base.size * base.size;
+    const tiles = new Array(n).fill("wall") as typeof base.tiles;
+    for (let x = 0; x < base.size; x++) tiles[1 * base.size + x] = x >= 1 && x <= 6 ? "hazard" : "floor";
+    const corridor = { ...base, tiles, carved: new Array(n).fill(false), entrance: { x: 0, y: 1 }, exit: { x: base.size - 1, y: 1 } };
+    const store = createMemoryStore();
+    store.state.defenses["42"] = { tokenId: 42, owner: "0xowner", traps: [], updatedAt: "" };
+    const deps: RaidDeps = { store, getRoom: async () => corridor, ownerOf: async () => "0xowner" };
+
+    const v0 = ok(await startRaid(deps, 42, "alice"));
+    const last = await play(deps, v0.raidId, ["R", "R", "R", "R", "R"]);
+    expect(last.outcome).toBe("defeated");
+    expect(last.status).toBe("defeated");
+    expect(last.hp).toBe(0);
+    expect(last.path.at(-1)).toEqual({ x: 5, y: 1 });
+    const after = await applyMove(deps, v0.raidId, "alice", "R", 5);
+    expect(after.ok).toBe(false);
+    if (!after.ok) expect(after.view?.status).toBe("defeated");
+  });
+
   it("is unknown-room safe", async () => {
     const { deps } = setup();
     const r = await startRaid(deps, 999, "alice");

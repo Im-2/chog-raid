@@ -51,7 +51,7 @@ export function createMemoryStore(
     },
     async listFinishedRaids(limit) {
       return Object.values(state.raids)
-        .filter((r) => r.status === "breach" || r.status === "dead" || r.status === "exhausted")
+        .filter((r) => r.status === "breach" || r.status === "defeated" || r.status === "out_of_moves")
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
         .slice(0, limit)
         .map(copy);

@@ -1,5 +1,6 @@
 "use client";
 
+import { chogName, chogNumber, tokenIdForNumber } from "@/lib/names";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -94,13 +95,13 @@ export default function DefendStart() {
                 <Link key={c.tokenId} href={`/room/${c.tokenId}/defend`} className={grid.card}>
                   <div className={grid.art}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={`${c.image}?s=256`} alt={`Chog #${c.tokenId}`} className="pixel" loading="lazy" />
+                    <img src={`${c.image}?s=256`} alt={chogName(c.tokenId)} className="pixel" loading="lazy" />
                     <span className={grid.tier} style={c.defended ? undefined : { color: "var(--torch)" }}>
                       {c.defended ? `Held ${c.daysHeld ?? 0}d · ${c.traps} traps` : "Undefended"}
                     </span>
                   </div>
                   <div className={grid.cardFoot}>
-                    <b>#{c.tokenId}</b>
+                    <b>{chogNumber(c.tokenId)}</b>
                     <span className="small">{c.defended ? "Edit" : "Defend"} →</span>
                   </div>
                 </Link>
@@ -114,15 +115,15 @@ export default function DefendStart() {
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              if (/^\d+$/.test(id)) router.push(`/room/${id}/defend`);
+              if (/^\d+$/.test(id)) router.push(`/room/${tokenIdForNumber(id) ?? id}/defend`);
             }}
             style={{ display: "flex", gap: 8 }}
           >
             <input
               type="text"
               inputMode="numeric"
-              placeholder="Chog #"
-              aria-label="Chog token ID"
+              placeholder="CHOG # (as on OpenSea)"
+              aria-label="CHOG number, as shown on OpenSea"
               value={id}
               onChange={(e) => setId(e.target.value.replace(/[^\d]/g, ""))}
               required

@@ -18,7 +18,7 @@ function raid(p: Partial<RaidRecord> & { at: string }): RaidRecord {
     difficulty: 1,
     traps: [],
     moves: "R".repeat(30),
-    status: "dead",
+    status: "defeated",
     hp: 0,
     movesLeft: 0,
     endX: 0,
@@ -65,7 +65,7 @@ describe("raider points", () => {
 
   it("halves practice room points and never pays for failed raids", () => {
     const p = raid({ at: "2026-10-06T10:00:00Z", status: "breach", practice: true, defender: null, par: null });
-    const f = raid({ at: "2026-10-06T10:00:00Z", status: "dead", raider: "guest:q", defender: null, practice: true });
+    const f = raid({ at: "2026-10-06T10:00:00Z", status: "defeated", raider: "guest:q", defender: null, practice: true });
     const aw = scoreRaids([p, f], SUPPLY);
     expect(pts(aw, p.id)).toBe(Math.round((R.raider.clear + R.raider.firstClearOfRoom) * R.raider.practiceMultiplier));
     expect(aw.some((a) => a.raidId === f.id)).toBe(false);

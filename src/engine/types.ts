@@ -49,11 +49,11 @@ export type Room = {
 
 export type Move = "U" | "D" | "L" | "R";
 
-export type RaidOutcome = "breach" | "dead" | "exhausted" | "incomplete";
+export type RaidOutcome = "breach" | "defeated" | "out_of_moves" | "incomplete";
 
 export type RaidEvent = {
   step: number;
-  kind: "bump" | "damage" | "teleport" | "key" | "door" | "breach" | "dead" | "exhausted";
+  kind: "bump" | "damage" | "teleport" | "key" | "door" | "breach" | "defeated" | "out_of_moves";
   at: Point;
   amount?: number;
   source?: "hazard" | "spike" | "guard";

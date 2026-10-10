@@ -1,3 +1,4 @@
+import { chogName } from "@/lib/names";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -86,7 +87,7 @@ export default async function Profile({ params }: Props) {
                     <img src={`/api/chogs/${r.tokenId}/image?s=128`} alt="" width={56} height={56} className="pixel" />
                   </Link>
                   <div>
-                    <b className="num">Chog #{r.tokenId}</b>
+                    <b className="num">{chogName(r.tokenId)}</b>
                     <p className="small muted" style={{ margin: 0 }}>
                       {r.traps} traps · held <b className="num">{r.daysHeld}</b> day{r.daysHeld === 1 ? "" : "s"}
                     </p>

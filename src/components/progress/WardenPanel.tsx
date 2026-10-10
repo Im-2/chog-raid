@@ -1,5 +1,6 @@
 "use client";
 
+import { chogName } from "@/lib/names";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Badges, Countdown, refreshPlayer, Streak, usePlayer } from "./bits";
@@ -29,7 +30,7 @@ export function WardenPanel() {
       {breached && (
         <div className={styles.callout} role="alert">
           <p>
-            <b>{breached.raider}</b> broke into <b className="num">Chog #{breached.tokenId}</b>. See exactly where they got
+            <b>{breached.raider}</b> broke into <b className="num">{chogName(breached.tokenId)}</b>. See exactly where they got
             through and fix the gap.
           </p>
           <Link className="btn primary" href={`/room/${breached.tokenId}/defend?nudge=1`}>

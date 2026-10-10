@@ -1,5 +1,6 @@
 "use client";
 
+import { chogNumber, tokenIdForNumber } from "@/lib/names";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -18,6 +19,7 @@ type Resp = {
 
 const FILTERS: { id: RoomSort; label: string }[] = [
   { id: "id", label: "All rooms" },
+  { id: "uncleared", label: "Not cleared yet" },
   { id: "raided", label: "Most raided" },
   { id: "undefended", label: "Least defended" },
   { id: "hardest", label: "Hardest" },
@@ -40,6 +42,14 @@ export function RoomBrowser() {
   const [items, setItems] = useState<RoomCard[]>([]);
   const [page, setPage] = useState(0);
   const [state, setState] = useState<{ status: "loading" | "ready" | "error"; data?: Resp }>({ status: "loading" });
+  const [progress, setProgress] = useState<{ cleared: Set<number>; total: number } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/me/progress", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => setProgress({ cleared: new Set(j.cleared), total: j.total }))
+      .catch(() => {});
+  }, []);
 
   const q = /^\d+$/.test(query.trim()) ? query.trim() : "";
 
@@ -85,20 +95,27 @@ export function RoomBrowser() {
   return (
     <div className={styles.browser}>
       <div className={styles.toolbar}>
-        <h2 className={styles.h2}>The dungeon</h2>
+        <h2 className={styles.h2}>
+          The dungeon{" "}
+          {progress && (
+            <span className={styles.progress} title="Rooms you have cleared">
+              Cleared <b className="num">{progress.cleared.size}</b> / <span className="num">{progress.total.toLocaleString()}</span>
+            </span>
+          )}
+        </h2>
         <form
           className={styles.search}
           role="search"
           onSubmit={(e) => {
             e.preventDefault();
-            if (q) router.push(`/room/${q}`);
+            if (q) router.push(`/room/${tokenIdForNumber(q) ?? q}`);
           }}
         >
           <input
             type="search"
             inputMode="numeric"
-            placeholder="Search Chog #"
-            aria-label="Search by token ID"
+            placeholder="Search CHOG #"
+            aria-label="Search by CHOG number, as shown on OpenSea"
             value={query}
             onChange={(e) => setQuery(e.target.value.replace(/[^\d]/g, ""))}
           />
@@ -125,7 +142,9 @@ export function RoomBrowser() {
       {!q && (
         <p className={styles.filterNote}>
           {sort === "id"
-            ? "Every Chog in the collection, in token order."
+            ? "Every Chog in the collection."
+            : sort === "uncleared"
+              ? "Rooms you haven't beaten yet."
             : sort === "raided"
               ? "Rooms with the most raids."
               : sort === "undefended"
@@ -169,14 +188,14 @@ export function RoomBrowser() {
               data?.reason === "no-raid-data"
                 ? "No raids recorded yet"
                 : q
-                  ? `No Chog #${q}`
+                  ? `No CHOG #${q}`
                   : "No rooms here yet"
             }
             body={
               data?.reason === "no-raid-data"
                 ? "This list fills up as raids are played. Be the first."
                 : q
-                  ? "Chog ids run from 1 to 1,969."
+                  ? "CHOG numbers run from 1 to 1,969."
                   : undefined
             }
             action={
@@ -201,9 +220,10 @@ export function RoomBrowser() {
                 onError={(e) => (e.currentTarget.dataset.failed = "")}
               />
               {c.tier && <span className={styles.tier}>{c.tier}</span>}
+              {progress?.cleared.has(c.tokenId) && <span className={styles.cleared}>✓ Cleared</span>}
             </div>
             <div className={styles.cardFoot}>
-              <b>#{c.tokenId}</b>
+              <b>{chogNumber(c.tokenId)}</b>
               {c.raids !== undefined ? (
                 <span className="small muted">
                   {c.raids} raid{c.raids === 1 ? "" : "s"} · {Math.round((c.defenseRate ?? 0) * 100)}% held
