@@ -9,6 +9,9 @@ const env = {
   DEMO_SIGNIN: "1",
   MOCK_OWNER_ADDRESS: process.env.MOCK_OWNER_ADDRESS || "0x000000000000000000000000000000000000dE40",
   DATA_DIR: ".data-mock",
+  // Never write mock raids into the real database: blank these so the file store is used.
+  NEXT_PUBLIC_SUPABASE_URL: "",
+  SUPABASE_SERVICE_ROLE_KEY: "",
   NEXT_DIST_DIR: ".next-mock",
   ...(process.argv.includes("--chog") ? { NEXT_PUBLIC_FEATURE_CHOG_TOKEN: "true" } : {}),
 };
