@@ -2,7 +2,7 @@ import sharp from "sharp";
 import { getNftAdapter } from "@/nft";
 import { mockSvg } from "@/nft/mockArt";
 
-const SIZES = new Set([128, 256, 512]);
+const SIZES = new Set([48, 128, 256, 512]);
 
 /**
  * Chog artwork. Mock mode returns generated pixel art. Onchain mode proxies the

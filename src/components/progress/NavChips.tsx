@@ -89,9 +89,26 @@ function AlertBell({ unread }: { unread: number }) {
 export function NavChips() {
   const session = useSession();
   const me = usePlayer();
+  const [toast, setToast] = useState<string | null>(null);
+  const lastUnread = useRef<number | null>(null);
+
+  // Live alerts: poll while the tab is visible; toast when a new raid hits one of your Chogs.
   useEffect(() => {
     void refreshPlayer();
+    if (!session.address) return;
+    const t = setInterval(() => !document.hidden && void refreshPlayer(), 30000);
+    return () => clearInterval(t);
   }, [session.address]);
+  useEffect(() => {
+    const u = me?.unread ?? 0;
+    if (lastUnread.current !== null && u > lastUnread.current) {
+      setToast(u - lastUnread.current === 1 ? "Someone just raided your Chog!" : `${u - lastUnread.current} new raids on your Chogs!`);
+      const t = setTimeout(() => setToast(null), 6000);
+      lastUnread.current = u;
+      return () => clearTimeout(t);
+    }
+    lastUnread.current = u;
+  }, [me?.unread]);
   const p = me?.player;
   return (
     <span className={styles.chips}>
@@ -101,6 +118,11 @@ export function NavChips() {
         </Link>
       )}
       {session.address && <AlertBell unread={me?.unread ?? 0} />}
+      {toast && (
+        <span className={styles.toast} role="status">
+          {toast} <Link href="/defend">See it</Link>
+        </span>
+      )}
     </span>
   );
 }

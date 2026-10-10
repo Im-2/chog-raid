@@ -180,3 +180,38 @@
 .muted {
   color: var(--muted);
 }
+
+.toast {
+  position: fixed;
+  top: 70px;
+  right: 16px;
+  z-index: 60;
+  padding: 10px 14px;
+  font-size: 14px;
+  background: var(--panel);
+  border: 3px solid var(--blood);
+  box-shadow: 0 0 0 2px var(--ink), 0 12px 30px rgba(0, 0, 0, 0.5);
+  animation: toastIn 0.25s ease-out;
+}
+@keyframes toastIn {
+  from {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+}
+.recap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  max-width: 760px;
+  margin: 0 auto 16px;
+  padding: 12px 16px;
+  background: linear-gradient(90deg, rgba(255, 209, 102, 0.16), transparent), var(--panel);
+  border: 3px solid var(--gold);
+  box-shadow: 0 0 0 2px var(--ink);
+}
+.recap p {
+  margin: 0;
+}

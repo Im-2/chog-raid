@@ -10,6 +10,7 @@ export function SiteNav() {
         CHOG<span>RAID</span>
       </Link>
       <nav className={styles.links} aria-label="Main">
+        <Link href="/atlas">Atlas</Link>
         <Link href="/leaderboards">Leaderboards</Link>
         <Link href="/defend">Defend</Link>
       </nav>

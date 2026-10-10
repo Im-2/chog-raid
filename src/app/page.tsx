@@ -2,6 +2,7 @@ import Link from "next/link";
 import { RoomBrowser } from "@/components/home/RoomBrowser";
 import { DungeonBackdrop } from "@/components/home/DungeonBackdrop";
 import { DailyCard } from "@/components/progress/DailyCard";
+import { SeasonRecap } from "@/components/progress/SeasonRecap";
 import { SiteNav } from "@/components/ui/SiteNav";
 import styles from "./home.module.css";
 import backdrop from "@/components/home/backdrop.module.css";
@@ -39,6 +40,7 @@ export default function Home() {
         </section>
 
         <div className="container">
+          <SeasonRecap />
           <DailyCard />
         </div>
 

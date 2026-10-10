@@ -65,6 +65,14 @@ export function playerSummary(snap: Snapshot, who: string, now = new Date()) {
   const wardens = standings(snap.awards, "warden", snap.season.index);
   const mine = (role: Award["role"]) => snap.awards.filter((a) => a.role === role && lc(a.who) === lc(who));
   const seasonPts = (role: Award["role"]) => mine(role).filter((a) => a.season === snap.season.index).reduce((s, a) => s + a.points, 0);
+  // Last season's final placing, for the end-of-season recap.
+  const prev = snap.season.index - 1;
+  const placeIn = (role: Award["role"]) => {
+    const list = standings(snap.awards, role, prev);
+    const i = list.findIndex((s) => lc(s.who) === lc(who));
+    return i < 0 ? null : { place: i + 1, points: list[i].points, of: list.length };
+  };
+  const lastSeason = prev >= 0 ? { index: prev, raider: placeIn("raider"), warden: placeIn("warden") } : null;
   const rooms = snap.defenses
     .filter((d) => lc(d.owner) === lc(who))
     .map((d) => ({ tokenId: d.tokenId, traps: d.traps.length, daysHeld: daysHeld(snap.raids, d.tokenId, d.updatedAt, now) }))
@@ -80,6 +88,7 @@ export function playerSummary(snap: Snapshot, who: string, now = new Date()) {
     bestDaysHeld: rooms[0]?.daysHeld ?? 0,
     rooms,
     badges: badgesOf(snap, who),
+    lastSeason,
   };
 }
 

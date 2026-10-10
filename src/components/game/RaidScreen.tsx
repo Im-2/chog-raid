@@ -12,6 +12,7 @@ import { Hud } from "./Hud";
 import { ResultCard } from "./ResultCard";
 import { HowToPlay, RoomInfo, type ChogSummary } from "./RoomInfo";
 import { useServerRaid } from "./useServerRaid";
+import { Badges, type BadgeT } from "../progress/bits";
 import styles from "./game.module.css";
 
 const KEYS: Record<string, Move> = {
@@ -39,7 +40,17 @@ export function SoundToggle({ on, onChange }: { on: boolean; onChange: (v: boole
 }
 
 /** The raid screen. Every move is resolved by the server; the client never sees hidden traps. */
-export function RaidScreen({ room, chog, daily = false }: { room: Room; chog: ChogSummary; daily?: boolean }) {
+export function RaidScreen({
+  room,
+  chog,
+  daily = false,
+  defenderBadges = [],
+}: {
+  room: Room;
+  chog: ChogSummary;
+  daily?: boolean;
+  defenderBadges?: BadgeT[];
+}) {
   const raid = useServerRaid(room.tokenId, room.entrance, room.rules.raiderHp, room.rules.maxMoves);
   const { result } = raid;
   const practice = raid.practice === true;
@@ -100,6 +111,7 @@ export function RaidScreen({ room, chog, daily = false }: { room: Room; chog: Ch
           <span>
             <span className="num">{chog.name}</span>
           </span>
+          <Badges badges={defenderBadges} max={2} />
           {daily && <span className="tag">Daily</span>}
           {practice && <span className="tag">Practice</span>}
         </button>

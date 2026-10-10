@@ -17,6 +17,7 @@ Open http://localhost:3000.
 - **Raid a room**: walk from IN to the glowing door with arrow keys / WASD, swipes, or the d-pad. Rooms without a defender use clearly labeled practice traps.
 - **Defend my Chog**: place traps in your Chog's slots, test the room yourself, and replay test raids from the raid log.
 
+- **Atlas** (`/atlas`): a zoomable, pannable canvas map of all 1,969 rooms, colored by activity (recent, heavily raided, open, defended, cleared by you) with filters, a minimap, pulses for fresh raids, a live activity feed and a preview card per room. Art streams in as you zoom.
 - **Leaderboards**: weekly seasons with a countdown; Raider and Warden points boards, the daily raid board, fastest clears and all-time stats. Top 3 each season earn a badge.
 - **Come back daily**: one featured room per day (same for everyone) with a bonus and its own board, a raid-day streak, and for holders a "days held" streak, Warden points for every raider who fails in their room, raid alerts with replays, and a "Defend again" heatmap that shows where raiders got through and suggests a fix.
 

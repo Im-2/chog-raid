@@ -71,6 +71,11 @@ export type Player = {
   bestDaysHeld: number;
   rooms: { tokenId: number; traps: number; daysHeld: number }[];
   badges: BadgeT[];
+  lastSeason: {
+    index: number;
+    raider: { place: number; points: number; of: number } | null;
+    warden: { place: number; points: number; of: number } | null;
+  } | null;
 };
 
 // Shared player state; refreshed after raids and alert reads.
