@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { RETENTION as R } from "@/config/retention";
+import { TIERS } from "@/config/tiers";
+import { NATIVE_ENGINE } from "@/engine";
 import { badgesFor, dailyBoard, dailyTokenId, dayKey, daysHeld, raidStreak, scoreRaids, seasonAt, standings } from "./retention";
 import type { RaidRecord } from "./store/types";
 
@@ -93,6 +95,23 @@ describe("warden points", () => {
     const base = R.warden.hold + Math.round(R.warden.hold * R.warden.difficultyStep * 2);
     expect(aw.map((a) => a.points)).toEqual([base, base + R.warden.perConsecutiveHold, base]);
     expect(aw.every((a) => a.points > 0)).toBe(true);
+  });
+
+  it("scales holds and clears by the room's tier once rooms have native defenses", () => {
+    const hold = (level: number) => pts(scoreRaids([raid({ at: "2026-10-06T01:00:00Z", difficulty: level, engine: NATIVE_ENGINE, raider: "guest:h" })], SUPPLY), `r${n}`);
+    const clear = (level: number) => {
+      const r = raid({ at: "2026-10-06T01:00:00Z", difficulty: level, engine: NATIVE_ENGINE, status: "breach", raider: "guest:c", par: null });
+      return pts(scoreRaids([r], SUPPLY), r.id);
+    };
+    expect(hold(1)).toBe(R.warden.hold);
+    expect(hold(5)).toBe(Math.round(R.warden.hold * TIERS.legendary.pointsMultiplier));
+    const c1 = clear(1);
+    expect(clear(4)).toBe(Math.round(c1 * TIERS.epic.pointsMultiplier));
+    const levels = [1, 2, 3, 4, 5];
+    for (let i = 1; i < levels.length; i++) {
+      expect(hold(levels[i])).toBeGreaterThan(hold(levels[i - 1]));
+      expect(clear(levels[i])).toBeGreaterThan(clear(levels[i - 1]));
+    }
   });
 
   it("ranks season standings and awards badges only for finished seasons", () => {

@@ -66,6 +66,9 @@ export const TIERS: Record<TierId, TierSpec> = {
 
 export const TIER_ORDER: TierId[] = ["common", "uncommon", "rare", "epic", "legendary"];
 
+/** The tier for a level (1-5), as stored on raid records. */
+export const tierAtLevel = (level: number | null | undefined): TierSpec => TIERS[TIER_ORDER[Math.max(1, Math.min(5, level ?? 1)) - 1]];
+
 /**
  * Boss signatures for the named 1/1s (Legendary). Each adds to the Legendary baseline.
  * Keyed by the title in the metadata name ("CHOG #53 — Blaze" -> "Blaze").

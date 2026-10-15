@@ -3,7 +3,8 @@
 // All tunable numbers live in src/config/retention.ts.
 
 import { RETENTION } from "@/config/retention";
-import { hashString } from "@/engine";
+import { tierAtLevel } from "@/config/tiers";
+import { hashString, NATIVE_ENGINE } from "@/engine";
 import type { RaidRecord } from "./store/types";
 
 const DAY = 86_400_000;
@@ -73,9 +74,13 @@ export function scoreRaids(raids: RaidRecord[], supply: number): Award[] {
         dailyClaimed.add(`${day}:${lc(r.raider)}`);
         parts.push({ label: "Daily raid", points: R.raider.dailyClear });
       }
-      const mult = r.practice ? R.raider.practiceMultiplier : 1;
+      // Harder tiers pay more (raids from before native defenses keep their old points).
+      const tier = r.engine === NATIVE_ENGINE ? tierAtLevel(r.difficulty) : null;
+      const tierMult = tier?.pointsMultiplier ?? 1;
+      const mult = (r.practice ? R.raider.practiceMultiplier : 1) * tierMult;
       const scaled = parts.map((p) => ({ ...p, points: Math.round(p.points * mult) }));
-      if (r.practice) scaled.push({ label: `Practice room (x${mult})`, points: 0 });
+      if (tier && tierMult !== 1) scaled.push({ label: `${tier.name} room (x${tierMult})`, points: 0 });
+      if (r.practice) scaled.push({ label: `Practice room (x${R.raider.practiceMultiplier})`, points: 0 });
       awards.push({ raidId: r.id, who: r.raider, role: "raider", season, points: scaled.reduce((s, p) => s + p.points, 0), parts: scaled });
       if (!r.practice) everCleared.add(r.tokenId);
     }
@@ -87,8 +92,15 @@ export function scoreRaids(raids: RaidRecord[], supply: number): Award[] {
         const streak = holdsSinceBreach.get(r.tokenId) ?? 0;
         const diff = r.difficulty ?? 1;
         const parts: AwardPart[] = [{ label: "Raider failed", points: R.warden.hold }];
-        const diffBonus = Math.round(R.warden.hold * R.warden.difficultyStep * (diff - 1));
-        if (diffBonus > 0) parts.push({ label: `Difficulty ${diff}`, points: diffBonus });
+        if (r.engine === NATIVE_ENGINE) {
+          // Holding a harder room is worth more: the hold scales with the tier's multiplier.
+          const tier = tierAtLevel(diff);
+          const bonus = Math.round(R.warden.hold * (tier.pointsMultiplier - 1));
+          if (bonus > 0) parts.push({ label: `${tier.name} room (x${tier.pointsMultiplier})`, points: bonus });
+        } else {
+          const diffBonus = Math.round(R.warden.hold * R.warden.difficultyStep * (diff - 1));
+          if (diffBonus > 0) parts.push({ label: `Difficulty ${diff}`, points: diffBonus });
+        }
         const streakBonus = Math.min(R.warden.streakCap, R.warden.perConsecutiveHold * streak);
         if (streakBonus > 0) parts.push({ label: `${streak} holds in a row`, points: streakBonus });
         holdsSinceBreach.set(r.tokenId, streak + 1);

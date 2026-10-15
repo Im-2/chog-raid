@@ -33,7 +33,8 @@ export const RETENTION = {
   /** Warden (defender) points, earned when a raider fails in your defended room. Wardens never lose points. */
   warden: {
     hold: 20,
-    /** Room difficulty is 1-5; each step above 1 adds this share of `hold`. */
+    /** Raids from before native defenses only: each difficulty step above 1 adds this share of `hold`.
+     *  Newer raids scale `hold` (and raider points) by the tier's pointsMultiplier in config/tiers.ts. */
     difficultyStep: 0.25,
     /** Each consecutive hold since the room's last breach adds this, up to `streakCap`. */
     perConsecutiveHold: 5,

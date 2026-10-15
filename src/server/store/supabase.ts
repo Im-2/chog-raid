@@ -105,12 +105,13 @@ export function createSupabaseStore(url: string, serviceKey: string): Store {
       const rows = check(
         await db
           .from("raids")
-          .select("id,token_id,raider,practice,defender,par,difficulty,moves,status,hp,moves_left,end_x,end_y,created_at,updated_at")
+          .select("id,token_id,raider,practice,defender,par,difficulty,engine:traps->engine,moves,status,hp,moves_left,end_x,end_y,created_at,updated_at")
           .in("status", ["breach", "defeated", "out_of_moves"])
           .order("created_at", { ascending: false })
           .limit(limit),
       );
-      return (rows as RaidRow[]).map((r) => fromRow({ ...r, traps: [] }));
+      // Only the engine version is read from the trap snapshot here (scoring needs it, not the traps).
+      return (rows as (RaidRow & { engine: number | null })[]).map(({ engine, ...r }) => ({ ...fromRow({ ...r, traps: [] }), engine: engine ?? undefined }));
     },
     async getDefense(tokenId) {
       const row = check(await db.from("defenses").select("*").eq("token_id", tokenId).maybeSingle()) as {
