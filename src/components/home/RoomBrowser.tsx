@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import type { RoomCard, RoomSort } from "@/lib/collection";
+import { DifficultyBadge } from "../ui/DifficultyBadge";
 import { InlineState } from "../ui/StateScreen";
 import styles from "./home.module.css";
 
@@ -13,7 +14,6 @@ type Resp = {
   total: number;
   hasMore: boolean;
   reason?: "no-raid-data";
-  indexing?: { done: number; total: number };
   error?: string;
 };
 
@@ -24,16 +24,6 @@ const FILTERS: { id: RoomSort; label: string }[] = [
   { id: "undefended", label: "Least defended" },
   { id: "hardest", label: "Hardest" },
 ];
-
-function Skulls({ n }: { n: number }) {
-  return (
-    <span className={styles.skulls} aria-label={`Difficulty ${n} of 5`} title={`Difficulty ${n}/5`}>
-      {Array.from({ length: 5 }, (_, i) => (
-        <i key={i} data-on={i < n || undefined} />
-      ))}
-    </span>
-  );
-}
 
 export function RoomBrowser() {
   const router = useRouter();
@@ -80,14 +70,6 @@ export function RoomBrowser() {
       ctrl.abort();
     };
   }, [load, q]);
-
-  // While the collection index builds, refresh "Hardest" every few seconds.
-  const indexing = state.data?.indexing;
-  useEffect(() => {
-    if (!indexing || sort !== "hardest") return;
-    const t = setTimeout(() => load(0), 4000);
-    return () => clearTimeout(t);
-  }, [indexing, sort, load]);
 
   const data = state.data;
   const firstLoad = state.status === "loading" && items.length === 0;
@@ -149,13 +131,7 @@ export function RoomBrowser() {
               ? "Rooms with the most raids."
               : sort === "undefended"
                 ? "Rooms raiders get through most often."
-                : "Rooms whose traits give the defender the most to work with."}
-        </p>
-      )}
-
-      {indexing && sort === "hardest" && !q && (
-        <p className={styles.note} role="status">
-          Mapping the whole dungeon: {indexing.done} / {indexing.total} rooms read so far…
+                : "Ranked by real difficulty: native defenses, route length, raider HP and trap slots."}
         </p>
       )}
 
@@ -219,7 +195,13 @@ export function RoomBrowser() {
                 className="pixel"
                 onError={(e) => (e.currentTarget.dataset.failed = "")}
               />
-              {c.tier && <span className={styles.tier}>{c.tier}</span>}
+              {c.diff ? (
+                <span className={styles.tier} data-badge>
+                  <DifficultyBadge d={c.diff} size="sm" />
+                </span>
+              ) : (
+                c.tier && <span className={styles.tier}>{c.tier}</span>
+              )}
               {progress?.cleared.has(c.tokenId) && <span className={styles.cleared}>✓ Cleared</span>}
             </div>
             <div className={styles.cardFoot}>
@@ -228,11 +210,9 @@ export function RoomBrowser() {
                 <span className="small muted">
                   {c.raids} raid{c.raids === 1 ? "" : "s"} · {Math.round((c.defenseRate ?? 0) * 100)}% held
                 </span>
-              ) : c.difficulty > 0 ? (
-                <Skulls n={c.difficulty} />
-              ) : (
-                <span className="small muted">…</span>
-              )}
+              ) : c.diff ? (
+                <span className="small muted">{c.diff.label}</span>
+              ) : null}
             </div>
           </Link>
         ))}

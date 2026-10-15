@@ -4,7 +4,9 @@ import Link from "next/link";
 import { RETENTION } from "@/config/retention";
 import { Tabs } from "@/components/leaderboards/Tabs";
 import { Badges, Countdown } from "@/components/progress/bits";
+import { DifficultyBadge } from "@/components/ui/DifficultyBadge";
 import { SiteNav } from "@/components/ui/SiteNav";
+import { difficultyFor } from "@/lib/difficulty";
 import { currentRaider, raiderLabel } from "@/server/identity";
 import { daily, seasonBoards, snapshot } from "@/server/progress";
 import { computeStats, rankDefenders, rankFastest, rankRaiders } from "@/server/stats";
@@ -99,7 +101,8 @@ export default async function Leaderboards() {
               content: (
                 <>
                   <p className="small" style={{ marginTop: 0 }}>
-                    Today&apos;s room: <Link href={`/room/${today.tokenId}`}>{chogName(today.tokenId)}</Link> · fewest moves wins · ends in{" "}
+                    Today&apos;s room: <Link href={`/room/${today.tokenId}`}>{chogName(today.tokenId)}</Link>{" "}
+                    <DifficultyBadge d={difficultyFor(today.tokenId)} size="sm" /> · fewest moves wins · ends in{" "}
                     <Countdown to={today.endsAt} />
                   </p>
                   {today.board.length ? (
@@ -150,7 +153,8 @@ export default async function Leaderboards() {
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img src={`/api/chogs/${r.tokenId}/image?s=128`} alt="" width={28} height={28} className="pixel" />
                             <span className="num">{chogName(r.tokenId)}</span>
-                          </Link>
+                          </Link>{" "}
+                          <DifficultyBadge d={difficultyFor(r.tokenId)} size="sm" />
                         </td>
                         <td className="num">{r.fastestClear!.moves}</td>
                         <td>{raiderLabel(r.fastestClear!.raider)}</td>

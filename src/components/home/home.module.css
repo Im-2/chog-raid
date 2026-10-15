@@ -114,17 +114,10 @@
   font-family: var(--font-num);
   font-size: 15px;
 }
-.skulls {
-  display: flex;
-  gap: 2px;
-}
-.skulls i {
-  width: 8px;
-  height: 8px;
-  background: #3a2a1e;
-}
-.skulls i[data-on] {
-  background: var(--ember);
+.tier[data-badge] {
+  padding: 0;
+  background: none;
+  border: 0;
 }
 
 .cardSkeleton > div {

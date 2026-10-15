@@ -1,4 +1,5 @@
 import { GAME, TRAP_INFO, type Room, type Trait, type TrapType } from "@/engine";
+import { NativeDefensePanel } from "./NativeDefense";
 import { RoomRecord } from "./RoomRecord";
 import { TrapIcon } from "./TrapIcon";
 import styles from "./game.module.css";
@@ -43,7 +44,17 @@ export function TrapLegend({ allowed }: { allowed?: TrapType[] }) {
   );
 }
 
-export function RoomInfo({ chog, room }: { chog: ChogSummary; room: Room }) {
+export function RoomInfo({
+  chog,
+  room,
+  nativeLayer,
+  onNativeLayer,
+}: {
+  chog: ChogSummary;
+  room: Room;
+  nativeLayer?: boolean;
+  onNativeLayer?: (on: boolean) => void;
+}) {
   return (
     <div className={styles.info}>
       <div className={styles.infoHead}>
@@ -59,6 +70,8 @@ export function RoomInfo({ chog, room }: { chog: ChogSummary; room: Room }) {
         <h4>Record</h4>
         <RoomRecord tokenId={room.tokenId} />
       </section>
+
+      <NativeDefensePanel room={room} highlight={nativeLayer} onHighlight={onNativeLayer} />
 
       <section>
         <h4>Room rules</h4>

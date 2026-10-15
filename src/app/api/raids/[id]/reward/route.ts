@@ -1,5 +1,6 @@
 import { chogName } from "@/lib/names";
-import { indexedCards, warmIndex } from "@/lib/collection";
+import { difficultyCards } from "@/lib/collection";
+import { difficultyFor } from "@/lib/difficulty";
 import { currentRaider } from "@/server/identity";
 import { awardFor, myRooms, playerSummary, snapshot, suggestNextRoom } from "@/server/progress";
 import { getStore } from "@/server/store";
@@ -15,10 +16,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const [snap, raid] = await Promise.all([snapshot(0), getStore().getRaid(raidId)]);
   if (!raid || raid.raider.toLowerCase() !== me.toLowerCase()) return Response.json({ error: "Not your raid." }, { status: 403 });
 
-  warmIndex(snap.supply);
-  const cards = indexedCards();
-  const diff = new Map(cards.map((c) => [c.tokenId, c.difficulty]));
-  const next = suggestNextRoom(snap, me, raid.tokenId, (id) => diff.get(id) ?? raid.difficulty ?? null, cards);
+  const next = suggestNextRoom(snap, me, raid.tokenId, (id) => difficultyFor(id)?.rating ?? null, difficultyCards(snap.supply));
   const p = playerSummary(snap, me);
   const rooms = myRooms(snap, me);
   const best = rooms.get(raid.tokenId) ?? { attempts: 0, cleared: false, bestMoves: null, lastOutcome: null };

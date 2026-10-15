@@ -1,9 +1,8 @@
 import { chogName, tokenIdForNumber } from "@/lib/names";
 import "server-only";
-import fs from "node:fs/promises";
-import path from "node:path";
-import { GAME, resolveRules, type Trait } from "@/engine";
-import { env } from "@/lib/env";
+import { generateRoom } from "@/engine";
+import { difficultyFor, difficultyOfRoom, type Difficulty } from "@/lib/difficulty";
+import { mockPixels, mockTraits } from "@/nft/mockArt";
 import { getNftAdapter, type Chog } from "@/nft";
 import { getStats, leastDefended, mostRaided } from "@/server/stats";
 import { getStore } from "@/server/store";
@@ -13,8 +12,10 @@ export type RoomCard = {
   name: string;
   image: string;
   tier?: string;
-  /** 1-5, from the room rules the Chog's traits produce. 0 = unknown (metadata unavailable right now). */
+  /** Rating 1-5 from the room's real difficulty score. 0 = unknown. */
   difficulty: number;
+  /** Tier, rating and score for the badge (src/data/chog-difficulty.json). */
+  diff: Difficulty | null;
   /** Present on the raid-stat sorts. */
   raids?: number;
   defenseRate?: number;
@@ -22,13 +23,22 @@ export type RoomCard = {
 
 export type RoomSort = "id" | "hardest" | "raided" | "undefended" | "uncleared";
 
-/** How hard a room is to raid, from its trait-derived rules (more slots, more trap types, more embers). */
-export function difficultyOf(traits: Trait[]): number {
-  const { rules, hazardSprinkle } = resolveRules(traits);
-  const score =
-    (rules.trapSlots - GAME.baseTrapSlots) * 2 + (rules.allowedTraps.length - 2) * 1.5 + hazardSprinkle / 3;
-  return Math.max(1, Math.min(5, 1 + Math.round(score / 2)));
+// Mock Chogs aren't in the precomputed index, so their rooms are generated (once) to rate them.
+const mockDiff = new Map<number, Difficulty>();
+function cardDifficulty(tokenId: number): Difficulty | null {
+  if (getNftAdapter().mode !== "mock") return difficultyFor(tokenId);
+  let d = mockDiff.get(tokenId);
+  if (!d) {
+    d = difficultyOfRoom(generateRoom({ tokenId, pixels: mockPixels(tokenId), traits: mockTraits(tokenId) }));
+    mockDiff.set(tokenId, d);
+  }
+  return d;
 }
+
+const withDiff = (tokenId: number) => {
+  const diff = cardDifficulty(tokenId);
+  return { diff, difficulty: diff?.rating ?? 0 };
+};
 
 function toCard(c: Chog): RoomCard {
   return {
@@ -36,56 +46,22 @@ function toCard(c: Chog): RoomCard {
     name: c.name,
     image: c.image,
     tier: c.traits.find((t) => t.trait_type === "Tier")?.value,
-    difficulty: difficultyOf(c.traits),
+    ...withDiff(c.tokenId),
   };
 }
 
-// Whole-collection index, built in the background (metadata is immutable).
-const index = new Map<number, RoomCard>();
-let warming: Promise<void> | null = null;
-const indexFile = () => path.join(env.cacheDir, `collection-${getNftAdapter().mode}.json`);
+const fallbackCard = (id: number): RoomCard => ({ tokenId: id, name: chogName(id), image: `/api/chogs/${id}/image`, ...withDiff(id) });
 
-/** Cards indexed so far (the whole collection once warm). */
-export function indexedCards(): RoomCard[] {
-  return [...index.values()];
+/** Every room ordered by real difficulty score, hardest first (ties by token id). */
+export function hardestIds(total: number): number[] {
+  return Array.from({ length: total }, (_, i) => i + 1).sort(
+    (a, b) => (cardDifficulty(b)?.score ?? -1) - (cardDifficulty(a)?.score ?? -1) || a - b,
+  );
 }
 
-export function indexProgress() {
-  return { done: index.size, warming: !!warming };
-}
-
-export function warmIndex(total: number): void {
-  if (warming || index.size >= total) return;
-  warming = (async () => {
-    try {
-      const saved = JSON.parse(await fs.readFile(indexFile(), "utf8")) as RoomCard[];
-      saved.forEach((c) => index.set(c.tokenId, c));
-    } catch {}
-    const adapter = getNftAdapter();
-    const todo = Array.from({ length: total }, (_, i) => i + 1).filter((id) => !index.has(id));
-    let next = 0;
-    let sinceSave = 0;
-    const save = async () => {
-      await fs.mkdir(env.cacheDir, { recursive: true }).catch(() => {});
-      await fs.writeFile(indexFile(), JSON.stringify([...index.values()])).catch(() => {});
-    };
-    await Promise.all(
-      Array.from({ length: 6 }, async () => {
-        while (next < todo.length) {
-          const id = todo[next++];
-          try {
-            const c = await adapter.getChog(id);
-            if (c) index.set(id, toCard(c));
-          } catch {}
-          if (++sinceSave >= 100) {
-            sinceSave = 0;
-            await save();
-          }
-        }
-      }),
-    );
-    await save();
-  })().finally(() => (warming = null));
+/** Rating per room, for "similar difficulty" suggestions. */
+export function difficultyCards(total: number): { tokenId: number; difficulty: number }[] {
+  return Array.from({ length: total }, (_, i) => ({ tokenId: i + 1, difficulty: cardDifficulty(i + 1)?.rating ?? 0 })).filter((c) => c.difficulty > 0);
 }
 
 export async function listRooms(opts: { sort: RoomSort; page: number; pageSize: number; q?: number; exclude?: Set<number> }) {
@@ -108,22 +84,18 @@ export async function listRooms(opts: { sort: RoomSort; page: number; pageSize: 
     const chogs = await Promise.all(slice.map((r) => adapter.getChog(r.tokenId).catch(() => null)));
     const items = slice.map((r, i): RoomCard => {
       const c = chogs[i];
-      const base = c ? toCard(c) : { tokenId: r.tokenId, name: chogName(r.tokenId), image: `/api/chogs/${r.tokenId}/image`, difficulty: 0 };
+      const base = c ? toCard(c) : fallbackCard(r.tokenId);
       return { ...base, raids: r.raids, defenseRate: r.defenseRate };
     });
     return { items, total: ordered.length, hasMore: start + opts.pageSize < ordered.length };
   }
 
   if (opts.sort === "hardest") {
-    warmIndex(total);
-    const sorted = [...index.values()].sort((a, b) => b.difficulty - a.difficulty || a.tokenId - b.tokenId);
+    const ordered = hardestIds(total);
     const start = opts.page * opts.pageSize;
-    return {
-      items: sorted.slice(start, start + opts.pageSize),
-      total: sorted.length,
-      hasMore: start + opts.pageSize < sorted.length,
-      indexing: index.size < total ? { done: index.size, total } : undefined,
-    };
+    const ids = ordered.slice(start, start + opts.pageSize);
+    const chogs = await Promise.all(ids.map((id) => adapter.getChog(id).catch(() => null)));
+    return { items: ids.map((id, i) => (chogs[i] ? toCard(chogs[i]) : fallbackCard(id))), total: ordered.length, hasMore: start + opts.pageSize < ordered.length };
   }
 
   // Token order, optionally skipping rooms (e.g. ones you already cleared).
@@ -134,8 +106,7 @@ export async function listRooms(opts: { sort: RoomSort; page: number; pageSize: 
   // Keep cards for Chogs whose metadata timed out; their room page retries on open.
   const items = ids.map((id, i): RoomCard => {
     const c = chogs[i];
-    return c ? toCard(c) : { tokenId: id, name: chogName(id), image: `/api/chogs/${id}/image`, difficulty: 0 };
+    return c ? toCard(c) : fallbackCard(id);
   });
-  items.forEach((c) => c.difficulty && index.set(c.tokenId, c));
   return { items, total: all.length, hasMore: start + opts.pageSize < all.length };
 }

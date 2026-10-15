@@ -16,6 +16,15 @@ export const COLORS = {
   steel: "#d8d2c6",
 };
 
+/** Badge color per tier; native defenses are drawn in their room's tier color. */
+export const TIER_COLORS: Record<string, string> = {
+  common: "#b39c80",
+  uncommon: "#7fd28c",
+  rare: "#5fb3ff",
+  epic: "#b07cff",
+  legendary: "#ffd166",
+};
+
 type RGB = [number, number, number];
 
 export function hexToRgb(hex: string): RGB {
@@ -39,6 +48,8 @@ export function renderTileLayer(room: Room): HTMLCanvasElement {
   const ctx = c.getContext("2d")!;
   const rng = mulberry32(hashString(`tiles:${room.tokenId}`));
   const P = 5; // stone grain block size
+  // Native pieces can sit on the carved path; they draw as what they are, not as cracked stone.
+  const nativeTile = new Set([...(room.native?.walls ?? []), ...(room.native?.hazards ?? []), ...(room.native?.moat ?? [])]);
 
   for (let i = 0; i < room.tiles.length; i++) {
     const x = (i % room.size) * T;
@@ -60,7 +71,7 @@ export function renderTileLayer(room: Room): HTMLCanvasElement {
       grain(mix(src, INK, 0.88), 0.25);
       continue;
     }
-    if (room.carved[i]) {
+    if (room.carved[i] && !nativeTile.has(i)) {
       grain(mix(mix(src, [140, 128, 112], 0.6), STONE, 0.3), 0.18);
       ctx.fillStyle = rgb(INK, 0.55);
       for (const [cx, cy, w, h] of [[8, 10, 10, 3], [15, 13, 3, 12], [18, 22, 12, 3], [6, 28, 8, 3]]) ctx.fillRect(x + cx, y + cy, w, h);
@@ -93,8 +104,21 @@ export function renderTileLayer(room: Room): HTMLCanvasElement {
         grain(mix(src, [20, 60, 110], 0.35), 0.1);
         break;
       case "hazard":
-        grain(mix(src, [90, 20, 5], 0.35), 0.16);
+        // Embers keep a hot base whatever the Chog's color, so they always read as danger.
+        grain(mix(src, [120, 32, 8], nativeTile.has(i) ? 0.75 : 0.5), 0.16);
         break;
+    }
+  }
+  // Native walls and embers carry iron rivets in the tier color, so the built-in layer reads apart
+  // from the Chog's own tiles even with the "Native defense" highlight off.
+  const native = room.native;
+  if (native) {
+    const tier = hexToRgb(TIER_COLORS[room.tier.id] ?? COLORS.steel);
+    for (const i of [...native.walls, ...native.hazards]) {
+      const x = (i % room.size) * T;
+      const y = Math.floor(i / room.size) * T;
+      ctx.fillStyle = rgb(tier, 0.75);
+      for (const [rx, ry] of [[4, 4], [T - 8, 4], [4, T - 8], [T - 8, T - 8]]) ctx.fillRect(x + rx, y + ry, 4, 4);
     }
   }
   // Walls cast a short shadow onto the walkable tile below them.
@@ -112,7 +136,7 @@ export function drawLiveTiles(ctx: CanvasRenderingContext2D, room: Room, t: numb
   for (let i = 0; i < room.tiles.length; i++) {
     const tile = room.tiles[i];
     if (tile !== "water" && tile !== "hazard") continue;
-    if (room.carved[i]) continue;
+    if (room.carved[i] && !room.native?.hazards.includes(i) && !room.native?.moat.includes(i)) continue;
     const x = (i % room.size) * T;
     const y = Math.floor(i / room.size) * T;
     if (tile === "water") {
@@ -264,4 +288,44 @@ export function drawGuardRoute(ctx: CanvasRenderingContext2D, route: Point[]) {
   for (const p of route) ctx.fillRect(p.x * T + 3, p.y * T + 3, T - 6, T - 6);
   ctx.fillStyle = "rgba(229,72,77,0.7)";
   for (const p of route) ctx.fillRect(p.x * T + T / 2 - 2, p.y * T + T / 2 - 2, 4, 4);
+}
+
+/** Positions (row-major) of every native piece, for the "Native defense" layer. */
+export function nativeCells(room: Room): number[] {
+  const n = room.native;
+  if (!n) return [];
+  const traps = n.traps.flatMap((t) => (t.type === "guard" ? [] : t.type === "lockdoor" ? [t.y * room.size + t.x, t.key.y * room.size + t.key.x] : [t.y * room.size + t.x]));
+  return [...new Set([...n.walls, ...n.hazards, ...n.moat, ...traps])];
+}
+
+/** The "Native defense" layer: pulsing tier-colored brackets around every built-in piece. */
+export function drawNativeLayer(ctx: CanvasRenderingContext2D, room: Room, cells: number[], t: number) {
+  const color = TIER_COLORS[room.tier.id] ?? COLORS.steel;
+  ctx.globalAlpha = 0.65 + 0.3 * Math.sin(t * 3);
+  ctx.fillStyle = color;
+  const L = 10;
+  for (const i of cells) {
+    const x = (i % room.size) * T;
+    const y = Math.floor(i / room.size) * T;
+    for (const [cx, cy, dx, dy] of [[0, 0, 1, 1], [T, 0, -1, 1], [0, T, 1, -1], [T, T, -1, -1]]) {
+      ctx.fillRect(dx > 0 ? x + cx + 1 : x + cx - L - 1, dy > 0 ? y + cy + 1 : y + cy - 4, L, 3);
+      ctx.fillRect(dx > 0 ? x + cx + 1 : x + cx - 4, dy > 0 ? y + cy + 1 : y + cy - L - 1, 3, L);
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+/** Marks a built-in guard (tier-colored gem over its head). */
+export function drawNativeMark(ctx: CanvasRenderingContext2D, room: Room, px: number, py: number) {
+  // A small diamond gem in the tier color, outlined in ink, floating over the guard's head.
+  const cx = px + T / 2;
+  const cy = py + 1;
+  ctx.fillStyle = COLORS.ink;
+  ctx.fillRect(cx - 2, cy - 6, 4, 12);
+  ctx.fillRect(cx - 6, cy - 2, 12, 4);
+  ctx.fillRect(cx - 4, cy - 4, 8, 8);
+  ctx.fillStyle = TIER_COLORS[room.tier.id] ?? COLORS.steel;
+  ctx.fillRect(cx - 1, cy - 4, 2, 8);
+  ctx.fillRect(cx - 4, cy - 1, 8, 2);
+  ctx.fillRect(cx - 2, cy - 2, 4, 4);
 }

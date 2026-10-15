@@ -11,6 +11,8 @@ export const MOCK_TRAITS: Record<string, Weighted> = {
   Mouth: [["Smile", 6], ["Grin", 3], ["Open", 3], ["Fangs", 2], ["Tongue", 2]],
   Pattern: [["None", 6], ["Spots", 3], ["Stripes", 3], ["Belly", 3], ["Puddles", 2], ["Embers", 1]],
   Head: [["None", 8], ["Crown", 1], ["Halo", 1], ["Horns", 2], ["Cap", 2]],
+  // Same proportions as the real collection (1279 / 590 / 60 / 30 / 10). Last, so earlier picks are unchanged.
+  Tier: [["Common", 1279], ["Uncommon", 590], ["Rare", 60], ["Epic", 30], ["Legendary", 10]],
 };
 
 const BG: Record<string, Pixel> = {

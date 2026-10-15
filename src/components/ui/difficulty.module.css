@@ -1,0 +1,56 @@
+.badge {
+  --tier: #b39c80;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 6px;
+  font-family: var(--font-num);
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--text);
+  background: rgba(11, 8, 6, 0.85);
+  border: 2px solid var(--tier);
+  white-space: nowrap;
+}
+.badge[data-tier="uncommon"] {
+  --tier: #7fd28c;
+}
+.badge[data-tier="rare"] {
+  --tier: #5fb3ff;
+}
+.badge[data-tier="epic"] {
+  --tier: #b07cff;
+}
+.badge[data-tier="legendary"] {
+  --tier: #ffd166;
+  box-shadow: 0 0 10px rgba(255, 179, 71, 0.45);
+}
+.badge[data-size="sm"] {
+  gap: 4px;
+  padding: 1px 4px;
+  font-size: 10px;
+}
+.tier {
+  color: var(--tier);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.pips {
+  display: inline-flex;
+  gap: 2px;
+}
+.pips i {
+  width: 6px;
+  height: 6px;
+  background: #3a2a1e;
+}
+.pips i[data-on] {
+  background: var(--tier);
+}
+.badge[data-size="sm"] .pips i {
+  width: 5px;
+  height: 5px;
+}
+.score {
+  color: var(--muted);
+}

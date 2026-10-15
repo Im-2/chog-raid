@@ -12,6 +12,9 @@ import {
   drawGuard,
   drawGuardRoute,
   drawLiveTiles,
+  drawNativeLayer,
+  drawNativeMark,
+  nativeCells,
   drawRaider,
   drawSkull,
   drawTorchlight,
@@ -44,6 +47,8 @@ export type BoardProps = {
   onTrapDrag?: (from: Point, to: Point) => void;
   onSwipe?: (m: Move) => void;
   label?: string;
+  /** Highlight the room's built-in "Native defense" layer. */
+  nativeLayer?: boolean;
 };
 
 type Particle = { x: number; y: number; vx: number; vy: number; life: number; max: number; color: string; size: number };
@@ -56,7 +61,7 @@ export function Board(props: BoardProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const propsRef = useRef(props);
   propsRef.current = props;
-  const layerRef = useRef<{ room: Room; canvas: HTMLCanvasElement } | null>(null);
+  const layerRef = useRef<{ room: Room; canvas: HTMLCanvasElement; native: number[] } | null>(null);
   const dragRef = useRef<{ start: Point; startPx: { x: number; y: number }; over: Point; trap: boolean; swiped?: boolean } | null>(null);
 
   const anim = useRef({
@@ -186,7 +191,7 @@ export function Board(props: BoardProps) {
       a.lastProps = p;
       a.lastDraw = now;
 
-      if (layerRef.current?.room !== room) layerRef.current = { room, canvas: renderTileLayer(room) };
+      if (layerRef.current?.room !== room) layerRef.current = { room, canvas: renderTileLayer(room), native: nativeCells(room) };
 
       // The server corrected a predicted path (e.g. a hidden trap): rewind to where they differ.
       if (a.pathRef && a.pathRef !== path && a.shown > 0) {
@@ -313,9 +318,15 @@ export function Board(props: BoardProps) {
       }
 
       p.traps.forEach((trap, i) => drawTrap(ctx, trap, t, { keyTaken: p.keysHeld?.includes(i) }));
+      if (p.nativeLayer) drawNativeLayer(ctx, room, layerRef.current.native, t);
+      // Native guards come first in the guard list (native traps precede the owner's).
+      const nativeGuards = room.native?.traps.filter((g) => g.type === "guard").length ?? 0;
       a.guardsTo.forEach((g, i) => {
         const f = a.guardsFrom[i] ?? g;
-        drawGuard(ctx, (f.x + (g.x - f.x) * gk) * T, (f.y + (g.y - f.y) * gk) * T);
+        const gx = (f.x + (g.x - f.x) * gk) * T;
+        const gy = (f.y + (g.y - f.y) * gk) * T;
+        drawGuard(ctx, gx, gy);
+        if (i < nativeGuards) drawNativeMark(ctx, room, gx, gy);
       });
 
       const settled = a.shown === path.length - 1 && !a.seg;

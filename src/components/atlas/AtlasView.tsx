@@ -1,5 +1,7 @@
 "use client";
 
+import { difficultyFor } from "@/lib/difficulty";
+import { DifficultyBadge } from "../ui/DifficultyBadge";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { chogName, tokenIdForNumber } from "@/lib/names";
@@ -497,6 +499,7 @@ export function AtlasView() {
             <img src={`/api/chogs/${selected}/image?s=256`} alt="" width={96} height={96} className="pixel" />
             <div>
               <h2 className="num">{chogName(selected)}</h2>
+              <DifficultyBadge d={difficultyFor(selected)} />
               <p className="small" style={{ color: sel.defender ? "var(--steel, #d8d2c6)" : "var(--moss)" }}>
                 {sel.defender ? `Defended by ${sel.defender}` : "Open: no defender, practice traps"} <Badges badges={badges} max={3} />
               </p>

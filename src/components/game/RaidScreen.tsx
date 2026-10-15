@@ -5,7 +5,9 @@ import { useCallback, useEffect, useState } from "react";
 import type { Move, Room } from "@/engine";
 import { loadSoundPref, saveSoundPref } from "@/lib/sound";
 import { Board } from "../board/Board";
+import { DifficultyBadge } from "../ui/DifficultyBadge";
 import { Sheet } from "../ui/Sheet";
+import { difficultyOfRoom } from "@/lib/difficulty";
 import { DPad } from "./DPad";
 import { describeEvent } from "./describe";
 import { Hud } from "./Hud";
@@ -59,6 +61,7 @@ export function RaidScreen({
   const [sound, setSound] = useState(false);
   const [panel, setPanel] = useState<"none" | "info" | "howto">("none");
   const [showResult, setShowResult] = useState(false);
+  const [nativeLayer, setNativeLayer] = useState(false);
 
   useEffect(() => {
     setSound(loadSoundPref());
@@ -112,6 +115,7 @@ export function RaidScreen({
           <span>
             <span className="num">{chog.name}</span>
           </span>
+          <DifficultyBadge d={difficultyOfRoom(room)} size="sm" />
           <Badges badges={defenderBadges} max={2} />
           {daily && <span className="tag">Daily</span>}
           {practice && <span className="tag">Practice</span>}
@@ -149,6 +153,7 @@ export function RaidScreen({
               events={result.events}
               outcome={result.outcome}
               sound={sound}
+              nativeLayer={nativeLayer}
               onSwipe={move}
             />
             {showResult && (
@@ -200,7 +205,7 @@ export function RaidScreen({
       </div>
 
       <Sheet open={panel === "info"} onClose={() => setPanel("none")} title="Room info" variant="drawer">
-        <RoomInfo chog={chog} room={room} />
+        <RoomInfo chog={chog} room={room} nativeLayer={nativeLayer} onNativeLayer={setNativeLayer} />
       </Sheet>
       <Sheet open={panel === "howto"} onClose={() => setPanel("none")} title="How to play">
         <HowToPlay />

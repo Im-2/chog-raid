@@ -54,13 +54,13 @@ export const TIERS: Record<TierId, TierSpec> = {
   },
   epic: {
     id: "epic", level: 4, name: "Epic", label: "Fortress",
-    wallDensity: 0.14, hazards: 6, guards: 2, doors: 1, keyMinDistance: 8,
-    raiderHp: 4, maxMoves: 50, extraTrapSlots: 1, lightRadius: 4, pointsMultiplier: 2,
+    wallDensity: 0.2, hazards: 8, guards: 3, doors: 1, keyMinDistance: 9,
+    raiderHp: 4, maxMoves: 48, extraTrapSlots: 1, lightRadius: 4, pointsMultiplier: 2,
   },
   legendary: {
     id: "legendary", level: 5, name: "Legendary", label: "Boss room",
-    wallDensity: 0.16, hazards: 8, guards: 3, doors: 2, keyMinDistance: 8,
-    raiderHp: 4, maxMoves: 50, extraTrapSlots: 2, lightRadius: 3.5, pointsMultiplier: 3,
+    wallDensity: 0.2, hazards: 10, guards: 3, doors: 2, keyMinDistance: 9,
+    raiderHp: 4, maxMoves: 46, extraTrapSlots: 2, lightRadius: 3.5, pointsMultiplier: 3,
   },
 };
 
@@ -99,5 +99,31 @@ export const BOSSES: Record<string, BossSignature> = {
   Redd: { name: "Blood Run", blurb: "Embers line the only road.", extraHazards: 6 },
 };
 
-/** Difficulty rating (1-5 stars) from the room's difficulty score (0-100). */
-export const RATING_THRESHOLDS = [0, 22, 36, 50, 64] as const;
+/**
+ * Difficulty score (0-100) weights, applied to the room's real layout after native defenses
+ * (engine/native.ts difficultyOf). Each term is capped so no single factor (like a very red
+ * Chog's art turning into embers) can dominate.
+ */
+export const DIFFICULTY = {
+  /** Shortest fair route as a share of the move budget: 0 points at `routeFrom`, `route` points at `routeTo`. */
+  route: 30,
+  routeFrom: 0.25,
+  routeTo: 0.75,
+  /** Per HP below the base 5. */
+  perMissingHp: 10,
+  perGuard: 5,
+  maxGuards: 4,
+  perDoor: 6,
+  /** Per ember tile, counting at most `maxHazards`. */
+  perHazard: 0.3,
+  maxHazards: 30,
+  /** Times the share of the room that is wall or void. */
+  cramped: 10,
+  /** Per owner trap slot above the base 3. */
+  perExtraSlot: 2.5,
+  /** Per move below the base 60. */
+  perMissingMove: 0.5,
+} as const;
+
+/** Difficulty rating (1-5 pips) from the score: the minimum score for each rating. */
+export const RATING_THRESHOLDS = [0, 20, 36, 50, 66] as const;

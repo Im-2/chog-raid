@@ -24,6 +24,7 @@ import { Hud } from "../game/Hud";
 import { causeOfEnd } from "../game/describe";
 import { RoomInfo, type ChogSummary } from "../game/RoomInfo";
 import { SoundToggle } from "../game/RaidScreen";
+import { isNativeAt, NativeDefensePanel } from "../game/NativeDefense";
 import { TrapIcon } from "../game/TrapIcon";
 import { useLocalRaid } from "../game/useLocalRaid";
 import { SessionError, WalletButton } from "../wallet/WalletButton";
@@ -172,6 +173,7 @@ export function DefendEditor({ room, chog, owner }: { room: Room; chog: ChogSumm
 
   const [traps, setTraps] = useState<Trap[]>([]);
   const [log, setLog] = useState<LogEntry[]>([]);
+  const [showNative, setShowNative] = useState(true);
   const [tool, setTool] = useState<Tool | null>(room.rules.allowedTraps[0] ?? null);
   const [axis, setAxis] = useState<"h" | "v">("h");
   const [pendingDoor, setPendingDoor] = useState<Point | null>(null);
@@ -279,6 +281,10 @@ export function DefendEditor({ room, chog, owner }: { room: Room; chog: ChogSumm
       if (commit([...traps, { type: "lockdoor", ...pendingDoor, key: p }], "Door and key placed.")) setPendingDoor(null);
       return;
     }
+    if (isNativeAt(room, p)) {
+      setSelected(null);
+      return setMessage({ kind: "error", text: "That's a native defense: built into this room by its tier. It can't be moved or removed." });
+    }
     const i = indexAt(p);
     if (i >= 0) {
       if (tool === "erase") {
@@ -322,10 +328,11 @@ export function DefendEditor({ room, chog, owner }: { room: Room; chog: ChogSumm
     return pts;
   }, [showPath, room, traps]);
 
-  const guardRoutes = useMemo(() => traps.flatMap((t) => (t.type === "guard" ? [guardRoute(room, t)] : [])), [traps, room]);
+  // Native defenses are drawn first and can't be selected, moved or removed.
+  const guardRoutes = useMemo(() => withNative(room, traps).flatMap((t) => (t.type === "guard" ? [guardRoute(room, t)] : [])), [traps, room]);
   const drawTraps = useMemo(
-    () => (pendingDoor ? [...traps, { type: "lockdoor" as const, ...pendingDoor, key: { x: -9, y: -9 } }] : traps),
-    [traps, pendingDoor],
+    () => withNative(room, pendingDoor ? [...traps, { type: "lockdoor" as const, ...pendingDoor, key: { x: -9, y: -9 } }] : traps),
+    [room, traps, pendingDoor],
   );
   const sel = selected !== null ? traps[selected] : null;
 
@@ -384,7 +391,8 @@ export function DefendEditor({ room, chog, owner }: { room: Room; chog: ChogSumm
               <Board
                 room={room}
                 traps={drawTraps}
-                guards={traps.flatMap((t) => (t.type === "guard" ? [{ x: t.x, y: t.y }] : []))}
+                guards={drawTraps.flatMap((t) => (t.type === "guard" ? [{ x: t.x, y: t.y }] : []))}
+                nativeLayer={showNative}
                 guardRoutes={guardRoutes}
                 ghostPath={ghostPath}
                 heat={heat?.heat}
@@ -410,8 +418,9 @@ export function DefendEditor({ room, chog, owner }: { room: Room; chog: ChogSumm
                 if (commit(next, "Suggestion applied. Save to make it live.")) setSelected(next.findIndex((t) => t.x === at.x && t.y === at.y));
               }}
             />
+            <NativeDefensePanel room={room} highlight={showNative} onHighlight={setShowNative} />
             <section className="panel">
-              <h3 className={styles.h3}>Traps</h3>
+              <h3 className={styles.h3}>Your traps</h3>
               <div className={styles.palette} role="radiogroup" aria-label="Trap to place">
                 {ALL.map((t) => {
                   const locked = !room.rules.allowedTraps.includes(t);

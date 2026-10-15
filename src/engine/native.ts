@@ -2,7 +2,7 @@
 // tier gets, generated deterministically from the tokenId and tier (numbers in config/tiers.ts).
 // Each piece is only kept if a fair route to the exit still exists, so rooms stay solvable.
 
-import { BOSSES, RATING_THRESHOLDS, TIERS, type BossSignature, type TierSpec } from "@/config/tiers";
+import { BOSSES, DIFFICULTY, RATING_THRESHOLDS, TIERS, type BossSignature, type TierSpec } from "@/config/tiers";
 import { DIR_ORDER, inBounds, samePoint, step } from "./grid";
 import { hashString, mulberry32, randInt } from "./rng";
 import { GAME } from "./config";
@@ -173,24 +173,27 @@ export function pathPoints(room: Room, moves: string[] | readonly string[]): Poi
 
 /**
  * A room's difficulty score (0-100) from its real layout and native defenses: how much of the
- * move budget the shortest fair route eats, raider HP, guards, doors, embers, how cramped the
- * room is, and how many traps its owner can add.
+ * move budget the shortest fair route eats, raider HP and moves, guards, doors, embers, how
+ * cramped the room is, and how many traps its owner can add. Weights: DIFFICULTY in config/tiers.ts.
  */
 export function difficultyOf(room: Room): { score: number; rating: number } {
+  const W = DIFFICULTY;
   const route = findSafePath(room, room.native.traps);
   const par = route ? route.length : room.rules.maxMoves;
+  const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
   const open = room.tiles.filter((t) => t === "floor" || t === "water").length / room.tiles.length;
   const hazards = room.tiles.filter((t) => t === "hazard").length;
   const guards = room.native.traps.filter((t) => t.type === "guard").length;
   const doors = room.native.traps.filter((t) => t.type === "lockdoor").length;
   const raw =
-    35 * (par / room.rules.maxMoves) +
-    8 * (6 - room.rules.raiderHp) +
-    6 * guards +
-    7 * doors +
-    0.5 * hazards +
-    20 * (1 - open) +
-    2 * room.rules.trapSlots;
+    W.route * clamp01((par / room.rules.maxMoves - W.routeFrom) / (W.routeTo - W.routeFrom)) +
+    W.perMissingHp * Math.max(0, GAME.raiderHp - room.rules.raiderHp) +
+    W.perMissingMove * Math.max(0, GAME.maxMoves - room.rules.maxMoves) +
+    W.perGuard * Math.min(W.maxGuards, guards) +
+    W.perDoor * doors +
+    W.perHazard * Math.min(W.maxHazards, hazards) +
+    W.cramped * (1 - open) +
+    W.perExtraSlot * Math.max(0, room.rules.trapSlots - GAME.baseTrapSlots);
   const score = Math.max(0, Math.min(100, Math.round(raw)));
   let rating = 1;
   RATING_THRESHOLDS.forEach((t, i) => score >= t && (rating = i + 1));

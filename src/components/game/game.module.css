@@ -578,3 +578,56 @@
     box-shadow: 0 0 0 3px var(--ink);
   }
 }
+
+/* Native defense layer panel */
+.native {
+  --tier: #b39c80;
+  border-left: 4px solid var(--tier);
+}
+.native[data-tier="uncommon"] {
+  --tier: #7fd28c;
+}
+.native[data-tier="rare"] {
+  --tier: #5fb3ff;
+}
+.native[data-tier="epic"] {
+  --tier: #b07cff;
+}
+.native[data-tier="legendary"] {
+  --tier: #ffd166;
+}
+.nativeHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.nativeTitle {
+  margin: 0;
+  font-size: 16px;
+  color: var(--tier);
+}
+.nativeList {
+  margin: 8px 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+}
+.nativeList b {
+  display: inline-block;
+  min-width: 22px;
+  color: var(--tier);
+}
+.boss {
+  margin: 8px 0;
+  font-size: 14px;
+  color: var(--gold);
+}
+.nativeToggle {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 13px;
+  cursor: pointer;
+}
