@@ -1,11 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Move, RaidResult, Room, Trap } from "@/engine";
+import { fogRoom, litCells, seenMask, type Move, type PublicRoom, type RaidResult, type Trap } from "@/engine";
 import type { RaidView as ServerView } from "@/server/raids";
 import { markInput } from "./latency";
-import { enqueue, initialSync, onNetworkError, onServerView, predict, takeBatch, type Batch, type SyncState } from "./raidSync";
-import type { RaidView } from "./useLocalRaid";
+import { enqueue, initialSync, knownRoom, onNetworkError, onServerView, predict, takeBatch, type Batch, type SyncState } from "./raidSync";
+import type { RaidView, Sight } from "./useLocalRaid";
 
 export type ServerRaid = RaidView & {
   phase: "starting" | "ready" | "error";
@@ -30,8 +30,10 @@ async function post(url: string, body: unknown): Promise<Reply> {
  * A server-authoritative raid with optimistic movement. Moves show instantly (predicted with the
  * shared engine from what the raider can see), go to the server in batches, and are reconciled
  * against every reply (see raidSync.ts). Same shape as useLocalRaid for the game screen.
+ *
+ * `room` is the public room: no tiles. What the raider has explored arrives with each server view.
  */
-export function useServerRaid(room: Room): ServerRaid {
+export function useServerRaid(room: PublicRoom): ServerRaid {
   const [sync, setSync] = useState<SyncState | null>(null);
   const [phase, setPhase] = useState<ServerRaid["phase"]>("starting");
   const [error, setError] = useState<string | null>(null);
@@ -158,6 +160,22 @@ export function useServerRaid(room: Room): ServerRaid {
   const visibleTraps: Trap[] = useMemo(() => sync?.view.visibleTraps ?? [], [sync]);
   const view = sync?.view;
 
+  // Fog of war: the explored map comes from the server; the torch follows the predicted position
+  // (lighting only what's already known, so nothing unseen is ever drawn).
+  const known = useMemo(() => (view ? knownRoom(room, view) : fogRoom(room, { radius: room.tier.lightRadius, map: "", colors: "", lit: [] })), [room, view]);
+  const seen = useMemo(() => (view ? seenMask(view.fog) : new Array(room.size * room.size).fill(false)), [view, room.size]);
+  const sight = useMemo<Sight>(
+    () => ({
+      room: known,
+      seen,
+      lit: litCells(known, result.endAt).filter((i) => seen[i]),
+      guardRoutes: view?.guardRoutes ?? [],
+      nativeTraps: view?.nativeTraps ?? 0,
+      guards: result.guards,
+    }),
+    [known, seen, result.endAt, result.guards, view],
+  );
+
   return {
     result,
     moves: [] as Move[],
@@ -174,5 +192,6 @@ export function useServerRaid(room: Room): ServerRaid {
     raidId: view?.raidId ?? null,
     busy: !!sync && sync.pending.length > 0,
     retry,
+    sight,
   };
 }

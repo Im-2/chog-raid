@@ -17,7 +17,8 @@ import {
   nativeCells,
   drawRaider,
   drawSkull,
-  drawTorchlight,
+  lightMask,
+  torchGlow,
   drawTrap,
   renderTileLayer,
 } from "./draw";
@@ -346,7 +347,14 @@ export function Board(props: BoardProps) {
         } else {
           drawRaider(ctx, a.raider.x, a.raider.y, t);
         }
-        drawTorchlight(ctx, room.size, a.raider.x + T / 2, a.raider.y + T / 2, t, dead ? 0.6 : 1);
+        const cx = a.raider.x + T / 2;
+        const cy = a.raider.y + T / 2;
+        ctx.drawImage(lightMask(room.tier?.lightRadius ?? 5, room.size), cx - W, cy - W, W * 2, W * 2);
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        ctx.globalAlpha = dead ? 0.6 : 1;
+        ctx.drawImage(torchGlow(), cx - T * 3.2, cy - T * 3.2, T * 6.4, T * 6.4);
+        ctx.restore();
       }
 
       if (p.highlight) {

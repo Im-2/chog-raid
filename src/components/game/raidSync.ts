@@ -7,8 +7,12 @@
 // the confirmed state, and the remaining unconfirmed moves are re-predicted on top of it. The
 // on-screen raider only "snaps" when the server knows something the client didn't (a hidden
 // trap), which is the only case where prediction and server can differ.
+//
+// Fog of war: the client never has the whole room. It predicts on the room as the raider knows it
+// (rebuilt from the server's fog view: unseen tiles are void), with the guard routes the server
+// sent. The raider only ever steps next to tiles they've already seen, so that is enough.
 
-import { simulateRaid, type Move, type RaidResult, type Room } from "@/engine";
+import { fogRoom, simulateRaid, type Move, type PublicRoom, type RaidResult, type Room } from "@/engine";
 import type { RaidView as ServerView } from "@/server/raids";
 
 export type Batch = { seq: number; moves: Move[] };
@@ -24,13 +28,27 @@ export type SyncState = {
 
 export const initialSync = (view: ServerView): SyncState => ({ view, pending: [], inflight: null });
 
+const known = new WeakMap<ServerView, Room>();
+
+/** The room as far as the raider knows it after this server view (cached per view). */
+export function knownRoom(pub: PublicRoom, v: ServerView): Room {
+  let r = known.get(v);
+  if (!r) {
+    r = fogRoom(pub, v.fog);
+    known.set(v, r);
+  }
+  return r;
+}
+
 /** What the raider should see right now: confirmed moves plus pending ones, predicted locally. */
-export function predict(room: Room, s: SyncState): RaidResult {
-  return simulateRaid(room, s.view.visibleTraps, [...(s.view.moves.split("") as Move[]), ...s.pending]);
+export function predict(pub: PublicRoom, s: SyncState): RaidResult {
+  return simulateRaid(knownRoom(pub, s.view), s.view.visibleTraps, [...(s.view.moves.split("") as Move[]), ...s.pending], {
+    routes: s.view.guardRoutes,
+  });
 }
 
 /** Add a move, unless the raid is (or is predicted to be) over. */
-export function enqueue(room: Room, s: SyncState, m: Move): SyncState {
+export function enqueue(room: PublicRoom, s: SyncState, m: Move): SyncState {
   if (s.view.status !== "active") return s;
   if (predict(room, s).outcome !== "incomplete") return s;
   return { ...s, pending: [...s.pending, m] };
@@ -70,7 +88,7 @@ export function onNetworkError(s: SyncState, sent: Batch): SyncState {
 }
 
 /** True when what the player saw locally disagrees with the server (a hidden trap fired). */
-export function diverged(room: Room, before: SyncState, after: SyncState): boolean {
+export function diverged(room: PublicRoom, before: SyncState, after: SyncState): boolean {
   const a = predict(room, before);
   const b = predict(room, after);
   const n = Math.min(a.path.length, b.path.length);

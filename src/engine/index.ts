@@ -10,3 +10,6 @@ export { toHex } from "./color";
 export { isMove, DIRS } from "./grid";
 export { tierOf, withNative, difficultyOf, pathPoints, bossFor, legacyRoom, roomForRaid, fitTraps, NATIVE_ENGINE } from "./native";
 export type { SearchStart } from "./traps";
+export { litCells, exploredCells } from "./visibility";
+export { fogView, fogRoom, fogTraps, publicRoom, raiderSight, seenMask } from "./fog";
+export type { FogView, PublicRoom } from "./fog";

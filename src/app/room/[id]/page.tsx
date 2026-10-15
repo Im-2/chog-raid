@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { RaidScreen } from "@/components/game/RaidScreen";
 import { loadRoom } from "@/lib/rooms";
+import { publicRoom } from "@/engine";
 import { getNftAdapter } from "@/nft";
 import { badgesOf, snapshot } from "@/server/progress";
 import { dailyTokenId, dayKey } from "@/server/retention";
@@ -24,7 +25,7 @@ export default async function RoomPage({ params }: Props) {
   const [snap, defense] = await Promise.all([snapshot(), getStore().getDefense(room.tokenId)]);
   return (
     <RaidScreen
-      room={room}
+      room={publicRoom(room)}
       chog={{ tokenId: chog.tokenId, name: chog.name, image: chog.image, traits: chog.traits }}
       daily={isDaily}
       defenderBadges={defense ? badgesOf(snap, defense.owner) : []}

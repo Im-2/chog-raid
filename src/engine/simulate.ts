@@ -20,9 +20,16 @@ import type { Move, Point, RaidEvent, RaidOutcome, RaidResult, Room, Trap } from
  * Moves after the raid ends are ignored. If moves run out of input first, the
  * outcome is "incomplete".
  */
-export function simulateRaid(room: Room, traps: Trap[], moves: readonly Move[]): RaidResult {
+export function simulateRaid(
+  room: Room,
+  traps: Trap[],
+  moves: readonly Move[],
+  /** Patrol routes per guard (in trap order), for a client that can't see every tile a guard walks. */
+  opts: { routes?: Point[][] } = {},
+): RaidResult {
   const { size, rules } = room;
   const guards = traps.flatMap((t) => (t.type === "guard" ? [guardRoute(room, t)] : []));
+  opts.routes?.forEach((r, i) => i < guards.length && r.length && (guards[i] = r));
   const trapAt = new Map<number, { trap: Trap; index: number }>();
   const keyAt = new Map<number, number>();
   traps.forEach((trap, index) => {

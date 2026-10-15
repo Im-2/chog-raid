@@ -36,47 +36,42 @@ const mix = (a: RGB, b: RGB, t: number): RGB => [a[0] + (b[0] - a[0]) * t, a[1] 
 const STONE = hexToRgb(COLORS.stone);
 const INK = hexToRgb(COLORS.ink);
 
+const nativeTiles = (room: Room) =>
+  new Set([...(room.native?.walls ?? []), ...(room.native?.hazards ?? []), ...(room.native?.moat ?? [])]);
+
 /**
- * Static tile layer, rendered once per room. Every tile is tinted from its source
- * Chog pixel, pulled toward dungeon stone so the room reads as a dungeon built
- * out of that Chog.
+ * Paint one tile: tinted from its source Chog pixel, pulled toward dungeon stone so the room reads
+ * as a dungeon built out of that Chog. Each tile has its own seeded grain, so tiles can be painted
+ * one at a time (as fog lifts) and still look exactly the same.
  */
-export function renderTileLayer(room: Room): HTMLCanvasElement {
-  const c = document.createElement("canvas");
-  c.width = room.size * T;
-  c.height = room.size * T;
-  const ctx = c.getContext("2d")!;
-  const rng = mulberry32(hashString(`tiles:${room.tokenId}`));
+function paintTile(ctx: CanvasRenderingContext2D, room: Room, i: number, nativeTile: Set<number>) {
+  const rng = mulberry32(hashString(`tiles:${room.tokenId}:${i}`));
   const P = 5; // stone grain block size
-  // Native pieces can sit on the carved path; they draw as what they are, not as cracked stone.
-  const nativeTile = new Set([...(room.native?.walls ?? []), ...(room.native?.hazards ?? []), ...(room.native?.moat ?? [])]);
+  const x = (i % room.size) * T;
+  const y = Math.floor(i / room.size) * T;
+  const src = hexToRgb(room.colors[i]);
+  const tile = room.tiles[i];
 
-  for (let i = 0; i < room.tiles.length; i++) {
-    const x = (i % room.size) * T;
-    const y = Math.floor(i / room.size) * T;
-    const src = hexToRgb(room.colors[i]);
-    const tile = room.tiles[i];
-
-    const grain = (base: RGB, amount: number) => {
-      for (let gy = 0; gy < T; gy += P) {
-        for (let gx = 0; gx < T; gx += P) {
-          const v = (rng() - 0.5) * amount;
-          ctx.fillStyle = rgb(mix(base, v > 0 ? [255, 240, 220] : INK, Math.abs(v)));
-          ctx.fillRect(x + gx, y + gy, P, P);
-        }
+  const grain = (base: RGB, amount: number) => {
+    for (let gy = 0; gy < T; gy += P) {
+      for (let gx = 0; gx < T; gx += P) {
+        const v = (rng() - 0.5) * amount;
+        ctx.fillStyle = rgb(mix(base, v > 0 ? [255, 240, 220] : INK, Math.abs(v)));
+        ctx.fillRect(x + gx, y + gy, P, P);
       }
-    };
+    }
+  };
 
-    if (tile === "void") {
-      grain(mix(src, INK, 0.88), 0.25);
-      continue;
-    }
-    if (room.carved[i] && !nativeTile.has(i)) {
-      grain(mix(mix(src, [140, 128, 112], 0.6), STONE, 0.3), 0.18);
-      ctx.fillStyle = rgb(INK, 0.55);
-      for (const [cx, cy, w, h] of [[8, 10, 10, 3], [15, 13, 3, 12], [18, 22, 12, 3], [6, 28, 8, 3]]) ctx.fillRect(x + cx, y + cy, w, h);
-      continue;
-    }
+  if (tile === "void") {
+    grain(mix(src, INK, 0.88), 0.25);
+    return;
+  }
+  // Native pieces can sit on the carved path; they draw as what they are, not as cracked stone.
+  if (room.carved[i] && !nativeTile.has(i)) {
+    grain(mix(mix(src, [140, 128, 112], 0.6), STONE, 0.3), 0.18);
+    ctx.fillStyle = rgb(INK, 0.55);
+    for (const [cx, cy, w, h] of [[8, 10, 10, 3], [15, 13, 3, 12], [18, 22, 12, 3], [6, 28, 8, 3]]) ctx.fillRect(x + cx, y + cy, w, h);
+  } else {
     switch (tile) {
       case "floor": {
         // Lift dark source colors so floor always reads lighter than walls.
@@ -88,7 +83,7 @@ export function renderTileLayer(room: Room): HTMLCanvasElement {
         break;
       }
       case "wall": {
-        // Raised block: lit top face, dark brick front.
+        // Raised block: lit top face in the Chog's color, dark brick front.
         const front = mix(src, INK, 0.7);
         grain(front, 0.1);
         ctx.fillStyle = rgb(INK, 0.7);
@@ -111,46 +106,175 @@ export function renderTileLayer(room: Room): HTMLCanvasElement {
   }
   // Native walls and embers carry iron rivets in the tier color, so the built-in layer reads apart
   // from the Chog's own tiles even with the "Native defense" highlight off.
-  const native = room.native;
-  if (native) {
-    const tier = hexToRgb(TIER_COLORS[room.tier.id] ?? COLORS.steel);
-    for (const i of [...native.walls, ...native.hazards]) {
-      const x = (i % room.size) * T;
-      const y = Math.floor(i / room.size) * T;
-      ctx.fillStyle = rgb(tier, 0.75);
-      for (const [rx, ry] of [[4, 4], [T - 8, 4], [4, T - 8], [T - 8, T - 8]]) ctx.fillRect(x + rx, y + ry, 4, 4);
-    }
+  if ((tile === "wall" || tile === "hazard") && nativeTile.has(i)) {
+    ctx.fillStyle = rgb(hexToRgb(TIER_COLORS[room.tier.id] ?? COLORS.steel), 0.75);
+    for (const [rx, ry] of [[4, 4], [T - 8, 4], [4, T - 8], [T - 8, T - 8]]) ctx.fillRect(x + rx, y + ry, 4, 4);
   }
-  // Walls cast a short shadow onto the walkable tile below them.
-  for (let i = room.size; i < room.tiles.length; i++) {
-    const t = room.tiles[i];
-    if (t === "wall" || t === "void" || room.tiles[i - room.size] !== "wall") continue;
+  // A wall casts a short shadow onto the walkable tile below it.
+  if (i >= room.size && tile !== "wall" && room.tiles[i - room.size] === "wall") {
     ctx.fillStyle = rgb(INK, 0.45);
-    ctx.fillRect((i % room.size) * T, Math.floor(i / room.size) * T, T, 7);
+    ctx.fillRect(x, y, T, 7);
   }
+}
+
+/** Static tile layer for a whole room (editor, replays without fog). */
+export function renderTileLayer(room: Room): HTMLCanvasElement {
+  const layer = createTileLayer(room.size);
+  paintTiles(layer, room);
+  return layer.canvas;
+}
+
+/** An offscreen tile layer that fills in as the raider explores. */
+export type TileLayer = { canvas: HTMLCanvasElement; painted: Uint8Array; tokenId: number };
+
+export function createTileLayer(size: number): TileLayer {
+  const canvas = document.createElement("canvas");
+  canvas.width = size * T;
+  canvas.height = size * T;
+  return { canvas, painted: new Uint8Array(size * size), tokenId: -1 };
+}
+
+/**
+ * Paint every tile in `seen` (all tiles when omitted) that isn't painted yet. Starts over when the
+ * room changes or the explored area shrinks (a new raid). Tiles never seen are never painted.
+ */
+export function paintTiles(layer: TileLayer, room: Room, seen?: boolean[]) {
+  const ctx = layer.canvas.getContext("2d")!;
+  const n = room.size * room.size;
+  let reset = layer.tokenId !== room.tokenId;
+  if (!reset && seen) for (let i = 0; i < n; i++) if (layer.painted[i] && !seen[i]) reset = true;
+  if (reset) {
+    ctx.clearRect(0, 0, layer.canvas.width, layer.canvas.height);
+    layer.painted.fill(0);
+    layer.tokenId = room.tokenId;
+  }
+  const nativeTile = nativeTiles(room);
+  for (let i = 0; i < n; i++) {
+    if (layer.painted[i] || (seen && !seen[i])) continue;
+    paintTile(ctx, room, i, nativeTile);
+    layer.painted[i] = 1;
+    // A wall just found may shade the tile under it, painted earlier.
+    const below = i + room.size;
+    if (room.tiles[i] === "wall" && below < n && layer.painted[below]) paintTile(ctx, room, below, nativeTile);
+  }
+}
+
+/**
+ * Fog of war as a tiny 1px-per-tile mask (unseen: black, explored: dimmed, lit: clear). Drawn
+ * scaled up with smoothing, so the fog gets soft edges for free.
+ */
+export function renderFogMask(size: number, seen: boolean[], lit: number[], explored = 0.5): HTMLCanvasElement {
+  const c = document.createElement("canvas");
+  c.width = size;
+  c.height = size;
+  const ctx = c.getContext("2d")!;
+  const img = ctx.createImageData(size, size);
+  const litSet = new Set(lit);
+  for (let i = 0; i < size * size; i++) {
+    const a = !seen[i] ? 255 : litSet.has(i) ? 0 : Math.round(255 * explored);
+    img.data.set([6, 4, 3, a], i * 4);
+  }
+  ctx.putImageData(img, 0, 0);
   return c;
 }
 
-/** Animated overlays for water and hazard tiles. `t` is seconds. */
-export function drawLiveTiles(ctx: CanvasRenderingContext2D, room: Room, t: number) {
+const lightMasks = new Map<string, HTMLCanvasElement>();
+
+/**
+ * Pre-rendered torchlight: a radial darkness mask, clear at the raider and dark past the torch
+ * radius. Built once per radius at low resolution and drawn scaled; never rebuilt per frame.
+ */
+export function lightMask(radiusTiles: number, roomSize: number): HTMLCanvasElement {
+  const key = `${radiusTiles}:${roomSize}`;
+  let c = lightMasks.get(key);
+  if (c) return c;
+  const span = roomSize * 2; // tiles covered, so the mask covers the room from any position
+  const res = 8; // px per tile
+  c = document.createElement("canvas");
+  c.width = span * res;
+  c.height = span * res;
+  const ctx = c.getContext("2d")!;
+  const mid = (span * res) / 2;
+  const g = ctx.createRadialGradient(mid, mid, radiusTiles * res * 0.35, mid, mid, radiusTiles * res * 1.15);
+  g.addColorStop(0, "rgba(6,4,3,0)");
+  g.addColorStop(0.7, "rgba(6,4,3,0.35)");
+  g.addColorStop(1, "rgba(6,4,3,0.7)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, c.width, c.height);
+  lightMasks.set(key, c);
+  return c;
+}
+
+let warmGlow: HTMLCanvasElement | null = null;
+/** Warm additive torch glow, pre-rendered once. */
+export function torchGlow(): HTMLCanvasElement {
+  if (warmGlow) return warmGlow;
+  const c = document.createElement("canvas");
+  c.width = 64;
+  c.height = 64;
+  const ctx = c.getContext("2d")!;
+  const g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+  g.addColorStop(0, "rgba(255,150,60,0.28)");
+  g.addColorStop(1, "rgba(255,150,60,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 64, 64);
+  warmGlow = c;
+  return c;
+}
+
+let emberGlow: HTMLCanvasElement | null = null;
+/** Soft orange glow sprite for ember tiles (pre-rendered once). */
+export function emberSprite(): HTMLCanvasElement {
+  if (emberGlow) return emberGlow;
+  const c = document.createElement("canvas");
+  c.width = T * 2;
+  c.height = T * 2;
+  const ctx = c.getContext("2d")!;
+  const g = ctx.createRadialGradient(T, T, 2, T, T, T);
+  g.addColorStop(0, "rgba(255,120,30,0.55)");
+  g.addColorStop(1, "rgba(255,120,30,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, T * 2, T * 2);
+  emberGlow = c;
+  return c;
+}
+
+/**
+ * Animated overlays for water and ember tiles. `t` is seconds. Only tiles in `seen` are drawn.
+ * Reduced effects: a single static frame (no shimmer, no flicker).
+ */
+export function drawLiveTiles(ctx: CanvasRenderingContext2D, room: Room, t: number, seen?: boolean[], reduced = false) {
+  const tt = reduced ? 0 : t;
+  const glow = emberSprite();
   for (let i = 0; i < room.tiles.length; i++) {
     const tile = room.tiles[i];
     if (tile !== "water" && tile !== "hazard") continue;
+    if (seen && !seen[i]) continue;
     if (room.carved[i] && !room.native?.hazards.includes(i) && !room.native?.moat.includes(i)) continue;
     const x = (i % room.size) * T;
     const y = Math.floor(i / room.size) * T;
     if (tile === "water") {
+      // Two drifting ripple rows plus a slow caustic glint.
       ctx.fillStyle = "rgba(200,235,255,0.45)";
       for (const row of [10, 24]) {
-        const off = Math.floor(((t * 12 + i * 7 + row) % 30));
+        const off = Math.floor((tt * 12 + i * 7 + row) % 30);
         ctx.fillRect(x + ((off + 4) % 30) + 2, y + row, 8, 3);
         ctx.fillRect(x + ((off + 19) % 30) + 2, y + row + 4, 6, 3);
       }
+      const glint = 0.5 + 0.5 * Math.sin(tt * 2 + i * 1.7);
+      ctx.fillStyle = `rgba(235,250,255,${0.25 * glint})`;
+      ctx.fillRect(x + 6 + ((i * 13) % 22), y + 4 + ((i * 7) % 26), 4, 4);
     } else {
-      const glow = 0.35 + 0.25 * Math.sin(t * 3 + i);
-      ctx.fillStyle = `rgba(255,140,40,${glow})`;
+      // Embers: a soft additive glow that breathes, with bright flecks on top.
+      const k = 0.55 + 0.3 * Math.sin(tt * 3 + i) + 0.15 * Math.sin(tt * 11 + i * 3);
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = Math.max(0.2, Math.min(1, k));
+      ctx.drawImage(glow, x - T / 2, y - T / 2);
+      ctx.restore();
+      ctx.fillStyle = `rgba(255,140,40,${0.35 + 0.3 * k})`;
       for (const [dx, dy] of [[8, 10], [24, 14], [14, 26], [28, 28]]) ctx.fillRect(x + dx, y + dy, 5, 5);
-      ctx.fillStyle = `rgba(255,230,120,${glow})`;
+      ctx.fillStyle = `rgba(255,230,120,${0.35 + 0.35 * k})`;
       for (const [dx, dy] of [[9, 11], [25, 15], [15, 27], [29, 29]]) ctx.fillRect(x + dx, y + dy, 2, 2);
     }
   }
@@ -221,8 +345,12 @@ export function drawTrap(ctx: CanvasRenderingContext2D, trap: Trap, t: number, o
       break;
     }
     case "lockdoor":
-      sprite(ctx, DOOR, { b: "#3b2410", B: "#8a5523", k: "#c9a36a", g: COLORS.gold }, x, y + 2);
-      if (!opts.keyTaken) {
+      // A door or key the raider hasn't seen yet arrives as -1,-1: nothing to draw.
+      if (trap.x >= 0) {
+        if (opts.keyTaken) drawOpenDoor(ctx, x, y);
+        else sprite(ctx, DOOR, { b: "#3b2410", B: "#8a5523", k: "#c9a36a", g: COLORS.gold }, x, y + 2);
+      }
+      if (!opts.keyTaken && trap.key.x >= 0) {
         const bob = Math.round(Math.sin(t * 3) * 2);
         sprite(ctx, KEY, { g: COLORS.gold }, trap.key.x * T, trap.key.y * T + 10 + bob);
       }
@@ -232,8 +360,63 @@ export function drawTrap(ctx: CanvasRenderingContext2D, trap: Trap, t: number, o
   }
 }
 
-export function drawGuard(ctx: CanvasRenderingContext2D, px: number, py: number) {
-  sprite(ctx, GUARD, { r: "#5b0f12", R: COLORS.blood, w: "#ffffff", k: COLORS.ink, m: "#2a0507" }, px, py + 4);
+const GUARD_STEP = ["..r....r..", "...r..r..."];
+
+/** A patrolling guard; `t` animates its bob and marching feet (pass 0 for a still frame). */
+export function drawGuard(ctx: CanvasRenderingContext2D, px: number, py: number, t = 0) {
+  const bob = Math.round(Math.sin(t * 8) * 1.5);
+  const rows = [...GUARD.slice(0, 7), GUARD_STEP[Math.floor(t * 4) % 2]];
+  ctx.fillStyle = "rgba(0,0,0,0.35)";
+  ctx.fillRect(px + 8, py + T - 6, T - 16, 4);
+  sprite(ctx, rows, { r: "#5b0f12", R: COLORS.blood, w: "#ffffff", k: COLORS.ink, m: "#2a0507" }, px, py + 4 + bob);
+  // Eyes glint as it looks around.
+  if (Math.sin(t * 2.3) > 0.85) {
+    ctx.fillStyle = COLORS.gold;
+    ctx.fillRect(px + 12, py + 16 + bob, 2, 2);
+    ctx.fillRect(px + 28, py + 16 + bob, 2, 2);
+  }
+}
+
+/** An unlocked door: the frame stays, the doorway is open. */
+export function drawOpenDoor(ctx: CanvasRenderingContext2D, x: number, y: number) {
+  ctx.fillStyle = "#3b2410";
+  ctx.fillRect(x + 4, y + 2, T - 8, 4);
+  ctx.fillRect(x + 4, y + 2, 4, T - 4);
+  ctx.fillRect(x + T - 8, y + 2, 4, T - 4);
+  ctx.fillStyle = "rgba(10,7,5,0.55)";
+  ctx.fillRect(x + 8, y + 6, T - 16, T - 8);
+}
+
+/** Door unlock animation, k from 0 to 1: the door slides up into its frame with a gold flash. */
+export function drawDoorUnlock(ctx: CanvasRenderingContext2D, p: Point, k: number) {
+  const x = p.x * T;
+  const y = p.y * T;
+  drawOpenDoor(ctx, x, y);
+  const lift = Math.round((T - 4) * k);
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x, y, T, T);
+  ctx.clip();
+  sprite(ctx, DOOR, { b: "#3b2410", B: "#8a5523", k: "#c9a36a", g: COLORS.gold }, x, y + 2 - lift);
+  ctx.restore();
+  ctx.fillStyle = `rgba(255,209,102,${0.5 * (1 - k)})`;
+  ctx.fillRect(x - 4, y - 4, T + 8, T + 8);
+}
+
+/** Telegraph: a pulsing warning on a tile that is about to hurt (a guard's next step, a known spike). */
+export function drawTelegraph(ctx: CanvasRenderingContext2D, p: Point, t: number, color = COLORS.blood) {
+  const k = 0.5 + 0.5 * Math.sin(t * 10);
+  const x = p.x * T;
+  const y = p.y * T;
+  ctx.globalAlpha = 0.25 + 0.35 * k;
+  ctx.fillStyle = color;
+  ctx.fillRect(x + 2, y + 2, T - 4, T - 4);
+  ctx.globalAlpha = 0.9;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  const inset = 2 + 3 * k;
+  ctx.strokeRect(x + inset, y + inset, T - inset * 2, T - inset * 2);
+  ctx.globalAlpha = 1;
 }
 
 export function drawSkull(ctx: CanvasRenderingContext2D, p: Point) {
@@ -256,31 +439,6 @@ export function drawRaider(ctx: CanvasRenderingContext2D, px: number, py: number
     ctx.fillStyle = "#fff3c4";
     ctx.fillRect(px + 34, py + 11 + bob, 3, 3);
   }
-}
-
-/**
- * Torchlight: the room stays visible but dims away from the raider, with a warm,
- * flickering pool of light around them.
- */
-export function drawTorchlight(ctx: CanvasRenderingContext2D, size: number, cx: number, cy: number, t: number, strength = 1) {
-  const W = size * T;
-  const flicker = 1 + 0.04 * Math.sin(t * 13) + 0.03 * Math.sin(t * 7.3);
-  const inner = T * 2.2 * flicker;
-  const outer = T * 7.5 * flicker;
-  const dark = ctx.createRadialGradient(cx, cy, inner, cx, cy, outer);
-  dark.addColorStop(0, "rgba(12,8,5,0)");
-  dark.addColorStop(1, `rgba(12,8,5,${0.55 * strength})`);
-  ctx.fillStyle = dark;
-  ctx.fillRect(0, 0, W, W);
-
-  ctx.save();
-  ctx.globalCompositeOperation = "lighter";
-  const warm = ctx.createRadialGradient(cx, cy, 0, cx, cy, T * 3.2 * flicker);
-  warm.addColorStop(0, `rgba(255,150,60,${0.22 * strength})`);
-  warm.addColorStop(1, "rgba(255,150,60,0)");
-  ctx.fillStyle = warm;
-  ctx.fillRect(0, 0, W, W);
-  ctx.restore();
 }
 
 export function drawGuardRoute(ctx: CanvasRenderingContext2D, route: Point[]) {

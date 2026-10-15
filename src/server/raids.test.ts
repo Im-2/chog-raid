@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findSafePath, generateRoom, legacyRoom, NATIVE_ENGINE, sampleTraps, simulateRaid, withNative, type Move, type Trap } from "@/engine";
+import { findSafePath, generateRoom, legacyRoom, litCells, NATIVE_ENGINE, sampleTraps, simulateRaid, withNative, type Move, type Trap } from "@/engine";
 import { mockPixels, mockTraits } from "@/nft/mockArt";
 import { applyMove, getReplay, listRoomRaids, startRaid, visibleTraps, type RaidDeps, type RaidView } from "./raids";
 import { createMemoryStore } from "./store/memory";
@@ -158,6 +158,22 @@ describe("server raids", () => {
     expect(r.ok).toBe(false);
   });
 
+  it("fog of war: never sends traps or tiles in unexplored darkness", async () => {
+    const r = room(42);
+    const far = { x: r.exit.x - 1, y: r.exit.y };
+    const lit = new Set(litCells(r, r.entrance));
+    expect(lit.has(far.y * r.size + far.x)).toBe(false);
+    const { deps } = setup([{ type: "guard", x: far.x, y: far.y, axis: "v" }]);
+    const v = ok(await startRaid(deps, 42, "alice"));
+    expect(v.visibleTraps).toEqual([]);
+    expect(v.guards).toEqual([]);
+    expect(v.guardRoutes).toEqual([]);
+    expect(v.fog.map[far.y * r.size + far.x]).toBe("?");
+    const json = JSON.stringify(v);
+    expect(json).not.toContain('"axis"');
+    expect(v.fog.map.split("").filter((c) => c !== "?").length).toBeLessThan(r.size * r.size / 2);
+  });
+
   describe("native defenses", () => {
     const epic = generateRoom({ tokenId: 42, pixels: mockPixels(42), traits: [{ trait_type: "Tier", value: "Epic" }] });
     const epicDeps = (store = createMemoryStore()): RaidDeps => ({ store, getRoom: async () => epic, ownerOf: async () => "0xOwner" });
@@ -168,8 +184,13 @@ describe("server raids", () => {
       const saved = (await store.getRaid(v.raidId))!;
       expect(saved.engine).toBe(NATIVE_ENGINE);
       expect(saved.traps.slice(0, epic.native.traps.length)).toEqual(epic.native.traps);
-      // Built-in guards and doors are visible from the first step.
-      for (const t of epic.native.traps) expect(v.visibleTraps).toContainEqual(t);
+      // Fog of war: only native pieces the raider has seen are sent, never ones in the dark.
+      const seen = [...v.fog.map].map((c) => c !== "?");
+      for (const t of v.visibleTraps) {
+        const cells = t.type === "lockdoor" ? [t, t.key] : t.type === "guard" ? v.guardRoutes[v.visibleTraps.filter((x) => x.type === "guard").indexOf(t)] : [t];
+        expect(cells.some((p) => p.x >= 0 && seen[p.y * epic.size + p.x])).toBe(true);
+      }
+      expect(v.nativeTraps).toBeLessThanOrEqual(epic.native.traps.length);
     });
 
     it("drop saved owner traps that now overlap a native piece", async () => {

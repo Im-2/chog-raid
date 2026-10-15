@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import type { Move, Room } from "@/engine";
+import type { Move, PublicRoom } from "@/engine";
 import { loadSoundPref, saveSoundPref } from "@/lib/sound";
 import { Board } from "../board/Board";
 import { DifficultyBadge } from "../ui/DifficultyBadge";
@@ -49,7 +49,7 @@ export function RaidScreen({
   daily = false,
   defenderBadges = [],
 }: {
-  room: Room;
+  room: PublicRoom;
   chog: ChogSummary;
   daily?: boolean;
   defenderBadges?: BadgeT[];
@@ -145,7 +145,7 @@ export function RaidScreen({
           />
           <div className={styles.boardFrame}>
             <Board
-              room={room}
+              room={raid.sight?.room ?? raid.sight!.room}
               traps={raid.visibleTraps}
               keysHeld={raid.keysHeld}
               path={result.path}
@@ -205,7 +205,7 @@ export function RaidScreen({
       </div>
 
       <Sheet open={panel === "info"} onClose={() => setPanel("none")} title="Room info" variant="drawer">
-        <RoomInfo chog={chog} room={room} nativeLayer={nativeLayer} onNativeLayer={setNativeLayer} />
+        <RoomInfo chog={chog} room={raid.sight!.room} nativeLayer={nativeLayer} onNativeLayer={setNativeLayer} />
       </Sheet>
       <Sheet open={panel === "howto"} onClose={() => setPanel("none")} title="How to play">
         <HowToPlay />

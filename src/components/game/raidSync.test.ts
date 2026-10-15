@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { findSafePath, generateRoom, type Move, type Trap } from "@/engine";
+import { findSafePath, generateRoom, publicRoom, type Move, type Trap } from "@/engine";
 import { mockPixels, mockTraits } from "@/nft/mockArt";
 import { applyMoves, startRaid, type RaidDeps, type RaidView } from "@/server/raids";
 import { createMemoryStore } from "@/server/store/memory";
 import { diverged, enqueue, initialSync, onNetworkError, onServerView, predict, takeBatch, type SyncState } from "./raidSync";
 
 const room = generateRoom({ tokenId: 42, pixels: mockPixels(42), traits: mockTraits(42) });
+const pub = publicRoom(room);
 const path = findSafePath(room, [])!;
 
 function server(defense: Trap[] = []) {
@@ -22,19 +23,19 @@ async function begin(defense?: Trap[]) {
   const v0 = view(await startRaid(deps, 42, "alice"));
   return { deps, s: initialSync(v0), raidId: v0.raidId };
 }
-const press = (s: SyncState, ms: Move[]) => ms.reduce((acc, m) => enqueue(room, acc, m), s);
+const press = (s: SyncState, ms: Move[]) => ms.reduce((acc, m) => enqueue(pub, acc, m), s);
 
 describe("optimistic raid sync", () => {
   it("moves instantly, then the server confirms the same state", async () => {
     const { deps, s: s0, raidId } = await begin();
     let s = press(s0, path.slice(0, 3));
-    const shown = predict(room, s);
+    const shown = predict(pub, s);
     expect(shown.path).toHaveLength(4); // visible before any reply
     const t = takeBatch(s)!;
     s = onServerView(t.state, t.batch, view(await send(deps, raidId, t.batch)));
     expect(s.pending).toEqual([]);
     expect(s.inflight).toBeNull();
-    expect(predict(room, s).path).toEqual(shown.path);
+    expect(predict(pub, s).path).toEqual(shown.path);
   });
 
   it("keeps moves made while a request is in flight, and sends them next with the right seq", async () => {
@@ -59,13 +60,13 @@ describe("optimistic raid sync", () => {
     const { deps, s: s0, raidId } = await begin([spike]);
     expect(s0.view.visibleTraps).toEqual([]); // hidden at start
     const before = press(s0, path.slice(0, 3));
-    expect(predict(room, before).hp).toBe(room.rules.raiderHp); // client guessed no damage
+    expect(predict(pub, before).hp).toBe(room.rules.raiderHp); // client guessed no damage
     const t = takeBatch(before)!;
     const after = onServerView(t.state, t.batch, view(await send(deps, raidId, t.batch)));
     expect(after.view.hp).toBe(room.rules.raiderHp - 2); // server: the spike hit
     expect(after.view.visibleTraps).toEqual([spike]); // revealed only once stepped on
-    expect(diverged(room, before, after)).toBe(true);
-    expect(predict(room, after).hp).toBe(after.view.hp); // screen now matches the server
+    expect(diverged(pub, before, after)).toBe(true);
+    expect(predict(pub, after).hp).toBe(after.view.hp); // screen now matches the server
   });
 
   it("resends safely after a dropped request (lost before or after the server applied it)", async () => {
@@ -121,12 +122,12 @@ describe("optimistic raid sync", () => {
   it("stops accepting moves once the raid is predicted or confirmed over", async () => {
     const { deps, s: s0, raidId } = await begin();
     let s = press(s0, path);
-    expect(predict(room, s).outcome).toBe("breach");
-    expect(enqueue(room, s, "L")).toBe(s);
+    expect(predict(pub, s).outcome).toBe("breach");
+    expect(enqueue(pub, s, "L")).toBe(s);
     const t = takeBatch(s)!;
     s = onServerView(t.state, t.batch, view(await send(deps, raidId, t.batch)));
     expect(s.view.status).toBe("breach");
-    expect(enqueue(room, s, "L")).toBe(s);
+    expect(enqueue(pub, s, "L")).toBe(s);
     expect(takeBatch(s)).toBeNull();
   });
 });

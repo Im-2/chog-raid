@@ -4,7 +4,11 @@
 
 import { randomUUID } from "node:crypto";
 import {
+  exploredCells,
   findSafePath,
+  fogTraps,
+  fogView,
+  guardRoute,
   isMove,
   withNative,
   fitTraps,
@@ -12,6 +16,7 @@ import {
   NATIVE_ENGINE,
   sampleTraps,
   simulateRaid,
+  type FogView,
   type Move,
   type Point,
   type RaidEvent,
@@ -40,11 +45,22 @@ export type RaidView = {
   hp: number;
   movesLeft: number;
   events: RaidEvent[];
+  /** Current positions of the guards in visibleTraps (same order). */
   guards: Point[];
-  /** Guards, lock doors (with keys), and spikes/teleporters the raider has stepped on. */
+  /**
+   * What the raider has found, fog of war applied: guards whose patrol they've seen, doors and
+   * keys they've seen (an unseen half of a door/key pair is sent as -1,-1), and spikes and
+   * teleporters they've stepped on. Nothing in unexplored darkness is ever sent.
+   */
   visibleTraps: Trap[];
+  /** Patrol route of each guard in visibleTraps, so the client never needs the tiles under it. */
+  guardRoutes: Point[][];
+  /** How many leading visibleTraps are the room's native defenses. */
+  nativeTraps: number;
   /** Indices into visibleTraps of doors whose key is held. */
   keysHeld: number[];
+  /** Explored map, colors of seen tiles, and what the torch lights right now. */
+  fog: FogView;
   /** The raider's own move list so far (e.g. "RRUD"); lets the client predict ahead of the server. */
   moves: string;
 };
@@ -62,7 +78,11 @@ export function visibleTraps(room: Room, traps: Trap[], path: Point[]): Trap[] {
 export function viewOf(current: Room, r: RaidRecord): RaidView {
   const room = roomForRaid(current, r.engine);
   const result = simulateRaid(room, r.traps, r.moves.split("") as Move[]);
-  const visible = visibleTraps(room, r.traps, result.path);
+  const seen = exploredCells(room, result.path);
+  const fog = fogView(room, result.path, seen);
+  const visible = fogTraps(room, r.traps, result.path, seen);
+  const nativeCount = r.engine === NATIVE_ENGINE ? room.native.traps.length : 0;
+  const guardIndex = r.traps.flatMap((t, i) => (t.type === "guard" ? [i] : []));
   return {
     raidId: r.id,
     tokenId: r.tokenId,
@@ -74,10 +94,16 @@ export function viewOf(current: Room, r: RaidRecord): RaidView {
     hp: result.hp,
     movesLeft: result.movesLeft,
     events: result.events,
-    guards: result.guards,
-    visibleTraps: visible,
-    keysHeld: result.keys.map((k) => visible.indexOf(r.traps[k])).filter((i) => i >= 0),
+    guards: result.guards.filter((_, k) => visible.some((v) => v.index === guardIndex[k])),
+    visibleTraps: visible.map((v) => v.trap),
+    guardRoutes: visible.flatMap((v) => (v.trap.type === "guard" ? [guardRoute(room, v.trap)] : [])),
+    nativeTraps: visible.filter((v) => v.index < nativeCount).length,
+    keysHeld: result.keys.flatMap((k) => {
+      const i = visible.findIndex((v) => v.index === k);
+      return i >= 0 ? [i] : [];
+    }),
     moves: r.moves,
+    fog,
   };
 }
 
