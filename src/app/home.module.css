@@ -2,26 +2,29 @@
 .hero {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 55fr) minmax(0, 45fr);
+  grid-template-columns: minmax(0, 60fr) minmax(0, 40fr);
   align-items: center;
   gap: 0;
   max-width: 1120px;
-  min-height: min(640px, calc(100dvh - 76px));
+  /* The whole hero (headline, buttons, poster) fits the first screen; only the room grid is below. */
+  height: calc(100svh - 72px);
+  min-height: 460px;
+  max-height: 820px;
   margin: 0 auto;
-  padding: 24px 16px 72px;
+  padding: 12px 16px 20px;
   overflow-x: clip; /* the tilted poster never causes sideways scroll */
 }
 
 .copy {
   position: relative;
-  z-index: 2; /* the headline overlaps the poster's edge, not the other way round */
-  padding: 0 0 0 28px;
+  z-index: 2;
+  padding: 0 24px 0 28px;
   text-align: left;
 }
 
 .kicker {
   display: inline-block;
-  margin: 0 0 18px;
+  margin: 0 0 clamp(10px, 2vh, 18px);
   padding: 4px 10px;
   font-family: var(--font-pixel);
   font-size: 13px;
@@ -34,29 +37,28 @@
 
 .headline {
   margin: 0;
-  font-size: clamp(44px, 6.4vw, 88px);
-  line-height: 0.9;
+  /* Sized by width AND height so "Defend your Chog." stays on one line and the hero fits short laptops. */
+  font-size: clamp(36px, min(5.2vw, 9vh), 76px);
+  line-height: 0.95;
   letter-spacing: -0.035em;
   text-shadow: 5px 5px 0 var(--ink);
 }
 .line1,
 .line2 {
   display: block;
+  white-space: nowrap;
 }
 .line2 {
-  white-space: nowrap;
   color: var(--torch);
-  /* nudged right so the two lines read as one carved block, not a centered stack */
-  margin-left: 0.6em;
   text-shadow:
     5px 5px 0 var(--ink),
     0 0 36px rgba(255, 150, 60, 0.45);
 }
 
 .pitch {
-  max-width: 30ch;
-  margin: 26px 0 30px;
-  font-size: 19px;
+  max-width: 44ch;
+  margin: clamp(12px, 2.6vh, 24px) 0 clamp(16px, 3.2vh, 28px);
+  font-size: clamp(16px, 2.6vh, 19px);
   line-height: 1.5;
   color: var(--text);
   opacity: 0.86;
@@ -68,9 +70,9 @@
   flex-wrap: wrap;
 }
 .ctas :global(.btn) {
-  min-width: 186px;
-  min-height: 56px;
-  font-size: 19px;
+  min-width: 180px;
+  min-height: clamp(46px, 7vh, 56px);
+  font-size: 18px;
 }
 
 /* The poster column pulls left under the headline's edge and sits a little lower. */
@@ -78,9 +80,8 @@
   position: relative;
   z-index: 1;
   justify-self: end;
-  width: min(100%, 390px);
-  margin-left: -40px;
-  transform: translateY(28px);
+  width: min(100%, 340px);
+  margin-left: -24px;
 }
 
 /* Wall torches framing the composition: one beside the headline, one above the poster. */
@@ -119,9 +120,17 @@
 @media (max-width: 900px) {
   .hero {
     grid-template-columns: 1fr;
+    height: auto;
     min-height: 0;
+    max-height: none;
     padding: 20px 16px 40px;
     gap: 36px;
+  }
+  .headline {
+    font-size: clamp(38px, 11vw, 64px);
+  }
+  .line1 {
+    white-space: normal;
   }
   .copy {
     padding: 0;
@@ -133,9 +142,6 @@
   }
   .torch {
     display: none;
-  }
-  .line2 {
-    margin-left: 0.4em;
   }
 }
 @media (max-width: 420px) {

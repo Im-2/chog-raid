@@ -1,7 +1,7 @@
 /* Dungeon notice board: wooden planks with a parchment "wanted" poster nailed to it. */
 .board {
   position: relative;
-  padding: 22px 22px 18px;
+  padding: 18px 16px 14px;
   background:
     repeating-linear-gradient(0deg, transparent 0 44px, rgba(0, 0, 0, 0.35) 44px 47px),
     linear-gradient(90deg, #3a281a, #2e2015 60%, #35251a);
@@ -35,7 +35,7 @@
 
 .poster {
   position: relative;
-  padding: 16px 18px 14px;
+  padding: 12px 14px 12px;
   color: #2b1a0e;
   text-align: left;
   background:
@@ -53,9 +53,9 @@
 }
 
 .stamp {
-  margin: 0 0 10px;
+  margin: 0 0 8px;
   font-family: var(--font-pixel);
-  font-size: clamp(26px, 3.2vw, 38px);
+  font-size: clamp(22px, 4vh, 32px);
   font-weight: 700;
   line-height: 1;
   letter-spacing: 0.06em;
@@ -65,6 +65,9 @@
 
 .art {
   display: block;
+  /* the art scales with screen height so the poster always fits the first screen */
+  width: min(100%, clamp(140px, 30vh, 250px));
+  margin: 0 auto;
   border: 4px solid #2b1a0e;
   box-shadow: 4px 4px 0 rgba(43, 26, 14, 0.35);
   background: #1a120c;
@@ -81,8 +84,8 @@
   align-items: baseline;
   gap: 8px;
   flex-wrap: wrap;
-  margin: 12px 0 8px;
-  font-size: 22px;
+  margin: 10px 0 6px;
+  font-size: 20px;
   color: #2b1a0e;
 }
 .name small {
@@ -95,8 +98,8 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
-  margin: 0 0 12px;
-  padding: 8px 0;
+  margin: 0 0 10px;
+  padding: 6px 0;
   border-top: 2px dashed rgba(43, 26, 14, 0.4);
   border-bottom: 2px dashed rgba(43, 26, 14, 0.4);
 }
@@ -184,4 +187,13 @@
   margin: 8px 0 0;
   font-size: 12px;
   color: var(--muted);
+}
+
+/* Short screens: keep the poster to its essentials so it never runs below the fold. */
+@media (min-width: 901px) and (max-height: 860px) {
+  .top,
+  .first,
+  .season {
+    display: none;
+  }
 }
