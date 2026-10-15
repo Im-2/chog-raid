@@ -50,7 +50,14 @@ export function DungeonBackdrop() {
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx) return;
 
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    // Reduced motion, small screens and low-power devices get one still frame instead of a loop.
+    const nav = navigator as Navigator & { deviceMemory?: number; connection?: { saveData?: boolean } };
+    const reduced =
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
+      window.innerWidth < 720 ||
+      (nav.hardwareConcurrency ?? 8) <= 4 ||
+      (nav.deviceMemory ?? 8) <= 4 ||
+      !!nav.connection?.saveData;
     let W = 0;
     const resize = () => {
       W = Math.ceil((H * window.innerWidth) / Math.max(1, window.innerHeight));

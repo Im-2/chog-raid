@@ -1,71 +1,99 @@
-.nav {
-  display: flex;
-  align-items: center;
-  max-width: 1120px;
-  margin: 0 auto;
-  padding: 14px 16px;
-}
-.brand {
-  font-family: var(--font-pixel);
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--text);
-  letter-spacing: 0.08em;
-}
-.brand span {
-  color: var(--torch);
-  margin-left: 4px;
-}
-.brand:hover {
-  text-decoration: none;
-}
-
+/* ---------- Landing hero: asymmetric split ---------- */
 .hero {
   position: relative;
-  max-width: 820px;
+  display: grid;
+  grid-template-columns: minmax(0, 55fr) minmax(0, 45fr);
+  align-items: center;
+  gap: 0;
+  max-width: 1120px;
+  min-height: min(640px, calc(100dvh - 76px));
   margin: 0 auto;
-  padding: 48px 16px 56px;
-  text-align: center;
+  padding: 24px 16px 72px;
+  overflow-x: clip; /* the tilted poster never causes sideways scroll */
 }
+
+.copy {
+  position: relative;
+  z-index: 2; /* the headline overlaps the poster's edge, not the other way round */
+  padding: 0 0 0 28px;
+  text-align: left;
+}
+
+.kicker {
+  display: inline-block;
+  margin: 0 0 18px;
+  padding: 4px 10px;
+  font-family: var(--font-pixel);
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--torch);
+  border: 2px solid var(--border);
+  background: rgba(11, 8, 6, 0.6);
+}
+
 .headline {
   margin: 0;
-  font-size: clamp(40px, 9vw, 76px);
-  line-height: 1;
-  text-shadow: 4px 4px 0 var(--ink);
+  font-size: clamp(44px, 6.4vw, 88px);
+  line-height: 0.9;
+  letter-spacing: -0.035em;
+  text-shadow: 5px 5px 0 var(--ink);
 }
-.headline span {
+.line1,
+.line2 {
+  display: block;
+}
+.line2 {
+  white-space: nowrap;
   color: var(--torch);
+  /* nudged right so the two lines read as one carved block, not a centered stack */
+  margin-left: 0.6em;
   text-shadow:
-    4px 4px 0 var(--ink),
-    0 0 40px rgba(255, 150, 60, 0.5);
+    5px 5px 0 var(--ink),
+    0 0 36px rgba(255, 150, 60, 0.45);
 }
+
 .pitch {
-  max-width: 560px;
-  margin: 20px auto 28px;
-  font-size: 18px;
-  color: var(--muted);
+  max-width: 30ch;
+  margin: 26px 0 30px;
+  font-size: 19px;
+  line-height: 1.5;
+  color: var(--text);
+  opacity: 0.86;
 }
+
 .ctas {
   display: flex;
   gap: 12px;
-  justify-content: center;
   flex-wrap: wrap;
 }
 .ctas :global(.btn) {
-  min-width: 190px;
-  min-height: 54px;
+  min-width: 186px;
+  min-height: 56px;
   font-size: 19px;
 }
 
-.torches span {
+/* The poster column pulls left under the headline's edge and sits a little lower. */
+.posterCol {
+  position: relative;
+  z-index: 1;
+  justify-self: end;
+  width: min(100%, 390px);
+  margin-left: -40px;
+  transform: translateY(28px);
+}
+
+/* Wall torches framing the composition: one beside the headline, one above the poster. */
+.torch {
   position: absolute;
-  top: 70px;
+  z-index: 0;
   width: 14px;
   height: 46px;
   background: #6b4426;
   box-shadow: 0 0 0 3px var(--ink);
+  pointer-events: none;
 }
-.torches span::before {
+.torch::before {
   content: "";
   position: absolute;
   left: -5px;
@@ -73,21 +101,73 @@
   width: 24px;
   height: 26px;
   background: linear-gradient(#fff3c4, var(--torch) 45%, var(--ember));
-  box-shadow: 0 0 50px 20px rgba(255, 150, 60, 0.35);
+  box-shadow: 0 0 50px 20px rgba(255, 150, 60, 0.3);
   animation: flicker 1.3s infinite steps(3);
 }
-.torches span:first-child {
+.torchLeft {
   left: 0;
+  top: 22%;
 }
-.torches span:last-child {
-  right: 0;
+.torchRight {
+  right: 6px;
+  top: 8%;
 }
-.torches span:last-child::before {
+.torchRight::before {
   animation-delay: 0.4s;
 }
-@media (max-width: 720px) {
-  .torches {
+
+@media (max-width: 900px) {
+  .hero {
+    grid-template-columns: 1fr;
+    min-height: 0;
+    padding: 20px 16px 40px;
+    gap: 36px;
+  }
+  .copy {
+    padding: 0;
+  }
+  .posterCol {
+    margin-left: 0;
+    transform: none;
+    max-width: 460px;
+  }
+  .torch {
     display: none;
+  }
+  .line2 {
+    margin-left: 0.4em;
+  }
+}
+@media (max-width: 420px) {
+  .ctas :global(.btn) {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+  .pitch {
+    font-size: 17px;
   }
 }
 
+/* ---------- Single-column page header (Defend) ---------- */
+.solo {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 28px 16px 24px;
+  text-align: left;
+}
+.soloHeadline {
+  margin: 0;
+  font-size: clamp(36px, 6vw, 64px);
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+  text-shadow: 4px 4px 0 var(--ink);
+}
+.soloHeadline span {
+  color: var(--torch);
+}
+.soloPitch {
+  max-width: 52ch;
+  margin: 16px 0 22px;
+  font-size: 18px;
+  color: var(--muted);
+}

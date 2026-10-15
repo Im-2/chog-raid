@@ -12,6 +12,7 @@ import { Hud } from "./Hud";
 import { ResultCard } from "./ResultCard";
 import { HowToPlay, RoomInfo, type ChogSummary } from "./RoomInfo";
 import { useServerRaid } from "./useServerRaid";
+import { LatencyReadout } from "./LatencyReadout";
 import { Badges, type BadgeT } from "../progress/bits";
 import styles from "./game.module.css";
 
@@ -51,7 +52,7 @@ export function RaidScreen({
   daily?: boolean;
   defenderBadges?: BadgeT[];
 }) {
-  const raid = useServerRaid(room.tokenId, room.entrance, room.rules.raiderHp, room.rules.maxMoves);
+  const raid = useServerRaid(room);
   const { result } = raid;
   const practice = raid.practice === true;
 
@@ -107,7 +108,7 @@ export function RaidScreen({
         </Link>
         <button className={styles.chogChip} onClick={() => setPanel("info")} aria-label="Room info">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={`${chog.image}?s=128`} alt="" width={32} height={32} className="pixel" />
+          <img src={`${chog.image}?s=48`} alt="" width={32} height={32} className="pixel" />
           <span>
             <span className="num">{chog.name}</span>
           </span>
@@ -207,6 +208,7 @@ export function RaidScreen({
           Let me in
         </button>
       </Sheet>
+      <LatencyReadout />
     </div>
   );
 }

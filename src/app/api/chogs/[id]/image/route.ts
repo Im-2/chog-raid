@@ -12,7 +12,8 @@ const SIZES = new Set([48, 128, 256, 512]);
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const id = Number((await params).id);
   const adapter = getNftAdapter();
-  const cache = { "Cache-Control": "public, max-age=31536000, immutable" };
+  // s-maxage lets Vercel's CDN keep each image at the edge, so IPFS is only hit once per size.
+  const cache = { "Cache-Control": "public, max-age=31536000, s-maxage=31536000, immutable" };
 
   try {
     if (!(await adapter.getChog(id))) return new Response("Not found", { status: 404 });

@@ -4,6 +4,7 @@ import { chogName } from "@/lib/names";
 import { useEffect, useRef } from "react";
 import type { Move, Point, RaidEvent, RaidOutcome, Room, Trap } from "@/engine";
 import { playSfx, type Sfx } from "@/lib/sound";
+import { markFrame } from "../game/latency";
 import {
   COLORS,
   T,
@@ -56,7 +57,7 @@ export function Board(props: BoardProps) {
   const propsRef = useRef(props);
   propsRef.current = props;
   const layerRef = useRef<{ room: Room; canvas: HTMLCanvasElement } | null>(null);
-  const dragRef = useRef<{ start: Point; startPx: { x: number; y: number }; over: Point; trap: boolean } | null>(null);
+  const dragRef = useRef<{ start: Point; startPx: { x: number; y: number }; over: Point; trap: boolean; swiped?: boolean } | null>(null);
 
   const anim = useRef({
     shown: -1,
@@ -73,6 +74,9 @@ export function Board(props: BoardProps) {
     victoryAt: 0,
     deadAt: 0,
     stalledAt: 0,
+    lastDraw: 0,
+    lastProps: null as BoardProps | null,
+    pathRef: null as Point[] | null,
     particles: [] as Particle[],
     floaters: [] as Floater[],
   });
@@ -153,6 +157,10 @@ export function Board(props: BoardProps) {
       }
     };
 
+    // Phones and tablets redraw idle ambience (water, torch flicker) at 15 fps; anything moving
+    // (raider, guards, effects) always gets every frame.
+    const idleMs = window.matchMedia("(pointer: coarse)").matches ? 66 : 33;
+
     const frame = (now: number) => {
       const p = propsRef.current;
       const { room } = p;
@@ -160,7 +168,39 @@ export function Board(props: BoardProps) {
       const path = p.path ?? [];
       const events = p.events ?? [];
 
+      const active =
+        p !== a.lastProps ||
+        !!a.seg ||
+        a.shown < path.length - 1 ||
+        a.particles.length > 0 ||
+        a.floaters.length > 0 ||
+        now < a.shakeUntil ||
+        now < a.flashUntil ||
+        now - a.guardsStart < STEP_MS ||
+        (a.victoryAt > 0 && now - a.victoryAt < 4000) ||
+        dragRef.current !== null;
+      if (!active && now - a.lastDraw < idleMs) {
+        raf = requestAnimationFrame(frame);
+        return;
+      }
+      a.lastProps = p;
+      a.lastDraw = now;
+
       if (layerRef.current?.room !== room) layerRef.current = { room, canvas: renderTileLayer(room) };
+
+      // The server corrected a predicted path (e.g. a hidden trap): rewind to where they differ.
+      if (a.pathRef && a.pathRef !== path && a.shown > 0) {
+        const upto = Math.min(a.shown, path.length - 1, a.pathRef.length - 1);
+        for (let i = 0; i <= upto; i++) {
+          if (a.pathRef[i].x !== path[i].x || a.pathRef[i].y !== path[i].y) {
+            a.shown = Math.max(0, i - 1);
+            a.seg = null;
+            a.raider = { x: path[a.shown].x * T, y: path[a.shown].y * T };
+            break;
+          }
+        }
+      }
+      a.pathRef = path;
 
       // Reset (new raid / restart): snap everything.
       if (path.length - 1 < a.shown || events.length < a.eventsSeen) {
@@ -189,6 +229,7 @@ export function Board(props: BoardProps) {
       if (!a.seg && a.shown < path.length - 1) {
         const from = path[a.shown];
         const to = path[a.shown + 1];
+        markFrame(now);
         if (adjacent(from, to)) {
           const behind = path.length - 1 - a.shown;
           a.seg = { from, to, start: now, dur: behind > 3 ? STEP_MS / 2 : STEP_MS };
@@ -413,7 +454,18 @@ export function Board(props: BoardProps) {
         dragRef.current = { start: p, over: p, startPx: { x: e.clientX, y: e.clientY }, trap: !!props.onTrapDrag && trapAt(p) };
       }}
       onPointerMove={(e) => {
-        if (dragRef.current) dragRef.current.over = toTile(e);
+        const d = dragRef.current;
+        if (!d) return;
+        d.over = toTile(e);
+        // Swipe fires as soon as the finger has travelled far enough, not on release.
+        if (props.onSwipe && !d.trap && !d.swiped) {
+          const dx = e.clientX - d.startPx.x;
+          const dy = e.clientY - d.startPx.y;
+          if (Math.hypot(dx, dy) > 24) {
+            d.swiped = true;
+            props.onSwipe(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "R" : "L") : dy > 0 ? "D" : "U");
+          }
+        }
       }}
       onPointerUp={(e) => {
         const d = dragRef.current;
@@ -422,6 +474,7 @@ export function Board(props: BoardProps) {
         const p = toTile(e);
         const dx = e.clientX - d.startPx.x;
         const dy = e.clientY - d.startPx.y;
+        if (d.swiped) return;
         if (props.onSwipe && Math.hypot(dx, dy) > 24) {
           props.onSwipe(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "R" : "L") : dy > 0 ? "D" : "U");
           return;

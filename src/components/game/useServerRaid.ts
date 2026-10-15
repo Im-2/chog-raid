@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Move, RaidResult, Trap } from "@/engine";
+import type { Move, RaidResult, Room, Trap } from "@/engine";
 import type { RaidView as ServerView } from "@/server/raids";
+import { markInput } from "./latency";
+import { enqueue, initialSync, onNetworkError, onServerView, predict, takeBatch, type Batch, type SyncState } from "./raidSync";
 import type { RaidView } from "./useLocalRaid";
 
 export type ServerRaid = RaidView & {
@@ -10,132 +12,136 @@ export type ServerRaid = RaidView & {
   error: string | null;
   practice: boolean | null;
   raidId: string | null;
-  /** A move is on its way to the server. */
+  /** Moves are waiting for the server to confirm them. */
   busy: boolean;
   retry(): void;
 };
 
-const MAX_BUFFERED = 6;
+const RETRY_MS = [400, 1000, 2500];
 
-async function post(url: string, body: unknown): Promise<{ ok: boolean; status: number; data: { error?: string; view?: ServerView } & Partial<ServerView> }> {
+type Reply = { ok: boolean; status: number; data: { error?: string; view?: ServerView } & Partial<ServerView> };
+
+async function post(url: string, body: unknown): Promise<Reply> {
   const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   return { ok: res.ok, status: res.status, data: await res.json().catch(() => ({})) };
 }
 
-function toResult(v: ServerView): RaidResult {
-  return {
-    outcome: v.outcome,
-    hp: v.hp,
-    movesLeft: v.movesLeft,
-    stepsProcessed: v.moveCount,
-    path: v.path,
-    keys: v.keysHeld,
-    guards: v.guards,
-    events: v.events,
-    endAt: v.path[v.path.length - 1],
-  };
-}
-
 /**
- * A raid resolved by the server, one move at a time. Same shape as useLocalRaid so the
- * game screen doesn't care which one it runs. Key presses made while a move is in flight
- * are buffered (up to MAX_BUFFERED) and sent in order with their sequence number, so a
- * resend after a network error is harmless.
+ * A server-authoritative raid with optimistic movement. Moves show instantly (predicted with the
+ * shared engine from what the raider can see), go to the server in batches, and are reconciled
+ * against every reply (see raidSync.ts). Same shape as useLocalRaid for the game screen.
  */
-export function useServerRaid(tokenId: number, entrance: { x: number; y: number }, maxHp: number, maxMoves: number): ServerRaid {
-  const [view, setView] = useState<ServerView | null>(null);
+export function useServerRaid(room: Room): ServerRaid {
+  const [sync, setSync] = useState<SyncState | null>(null);
   const [phase, setPhase] = useState<ServerRaid["phase"]>("starting");
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const queue = useRef<Move[]>([]);
-  const viewRef = useRef<ServerView | null>(null);
-  const sending = useRef(false);
+  const syncRef = useRef<SyncState | null>(null);
   const generation = useRef(0);
   const started = useRef<number | null>(null);
+  const failures = useRef(0);
+  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** The server no longer knows this raid (e.g. replaced from another tab): retry starts a new one. */
   const lost = useRef(false);
 
-  const apply = (v: ServerView) => {
-    viewRef.current = v;
-    setView(v);
+  const commit = (s: SyncState) => {
+    syncRef.current = s;
+    setSync(s);
   };
 
   const start = useCallback(async () => {
     const gen = ++generation.current;
     lost.current = false;
-    queue.current = [];
-    sending.current = false;
-    setBusy(false);
+    failures.current = 0;
+    if (retryTimer.current) clearTimeout(retryTimer.current);
+    syncRef.current = null;
+    setSync(null);
     setPhase("starting");
     setError(null);
     try {
-      const r = await post("/api/raids", { tokenId });
+      const r = await post("/api/raids", { tokenId: room.tokenId });
       if (gen !== generation.current) return;
       if (!r.ok) throw new Error(r.data.error ?? "Couldn't start the raid.");
-      apply(r.data as ServerView);
+      commit(initialSync(r.data as ServerView));
       setPhase("ready");
     } catch (e) {
       if (gen !== generation.current) return;
       setError((e as Error).message || "Couldn't reach the server.");
       setPhase("error");
     }
-  }, [tokenId]);
+  }, [room.tokenId]);
 
+  // Send whatever is pending, one request at a time, until nothing is left.
   const pump = useCallback(async () => {
-    if (sending.current) return;
-    sending.current = true;
-    setBusy(true);
     const gen = generation.current;
+    const s = syncRef.current;
+    if (!s) return;
+    const next = takeBatch(s);
+    if (!next) return;
+    commit(next.state);
+    const batch: Batch = next.batch;
+    let reply: Reply;
     try {
-      while (queue.current.length && viewRef.current && viewRef.current.status === "active") {
-        const v = viewRef.current;
-        const r = await post(`/api/raids/${v.raidId}/moves`, { move: queue.current[0], seq: v.moveCount });
-        if (gen !== generation.current) return;
-        if (r.ok) {
-          queue.current.shift();
-          apply(r.data as ServerView);
-        } else if (r.data.view) {
-          // Out of sync or already over: trust the server's view and drop buffered input.
-          queue.current = [];
-          apply(r.data.view);
-          if (r.data.view.status === "abandoned") throw new Error("You started this room again somewhere else.");
-        } else {
-          if (r.status === 404 || r.status === 403) lost.current = true;
-          throw new Error(lost.current ? "This raid was closed. Start a fresh one." : (r.data.error ?? "The move didn't go through."));
-        }
-      }
-    } catch (e) {
-      if (gen !== generation.current) return;
-      setError((e as Error).message || "Connection lost.");
-      setPhase("error");
-    } finally {
-      if (gen === generation.current) {
-        sending.current = false;
-        setBusy(false);
-      }
+      reply = await post(`/api/raids/${s.view.raidId}/moves`, { moves: batch.moves, seq: batch.seq });
+    } catch {
+      reply = { ok: false, status: 0, data: {} };
     }
+    if (gen !== generation.current || !syncRef.current) return;
+
+    const v = reply.ok ? (reply.data as ServerView) : reply.data.view;
+    if (v) {
+      failures.current = 0;
+      commit(onServerView(syncRef.current, batch, v));
+      if (v.status === "abandoned") {
+        setError("You started this room again somewhere else.");
+        setPhase("error");
+        return;
+      }
+      void pump();
+      return;
+    }
+    // No usable reply: keep the moves (on screen and queued) and resend after a short wait.
+    commit(onNetworkError(syncRef.current, batch));
+    if (reply.status === 404 || reply.status === 403) {
+      lost.current = true;
+      setError("This raid was closed. Start a fresh one.");
+      setPhase("error");
+      return;
+    }
+    const wait = RETRY_MS[failures.current++];
+    if (wait === undefined) {
+      setError(reply.data.error ?? "Connection lost. Your moves are saved; try again.");
+      setPhase("error");
+      return;
+    }
+    retryTimer.current = setTimeout(() => void pump(), wait);
   }, []);
 
   // Start exactly once per room. React dev mode runs effects twice; a second start would race the
   // first on the server and could close the raid this page is actually playing.
   useEffect(() => {
-    if (started.current === tokenId) return;
-    started.current = tokenId;
+    if (started.current === room.tokenId) return;
+    started.current = room.tokenId;
     void start();
-  }, [start, tokenId]);
+  }, [start, room.tokenId]);
+
+  useEffect(() => () => void (retryTimer.current && clearTimeout(retryTimer.current)), []);
 
   const move = useCallback(
     (m: Move) => {
-      const v = viewRef.current;
-      if (!v || v.status !== "active" || queue.current.length >= MAX_BUFFERED) return;
-      queue.current.push(m);
+      const s = syncRef.current;
+      if (!s) return;
+      const next = enqueue(room, s, m);
+      if (next === s) return;
+      markInput();
+      commit(next);
       void pump();
     },
-    [pump],
+    [pump, room],
   );
 
   const retry = useCallback(() => {
-    if (!viewRef.current || lost.current || viewRef.current.status === "abandoned") return void start();
+    if (!syncRef.current || lost.current || syncRef.current.view.status === "abandoned") return void start();
+    failures.current = 0;
     setError(null);
     setPhase("ready");
     void pump();
@@ -143,20 +149,22 @@ export function useServerRaid(tokenId: number, entrance: { x: number; y: number 
 
   const result = useMemo<RaidResult>(
     () =>
-      view
-        ? toResult(view)
-        : { outcome: "incomplete", hp: maxHp, movesLeft: maxMoves, stepsProcessed: 0, path: [entrance], keys: [], guards: [], events: [], endAt: entrance },
-    [view, entrance, maxHp, maxMoves],
+      sync
+        ? predict(room, sync)
+        : { outcome: "incomplete", hp: room.rules.raiderHp, movesLeft: room.rules.maxMoves, stepsProcessed: 0, path: [room.entrance], keys: [], guards: [], events: [], endAt: room.entrance },
+    [sync, room],
   );
 
-  const visibleTraps: Trap[] = useMemo(() => view?.visibleTraps ?? [], [view]);
+  const visibleTraps: Trap[] = useMemo(() => sync?.view.visibleTraps ?? [], [sync]);
+  const view = sync?.view;
 
   return {
     result,
     moves: [] as Move[],
-    movesUsed: view?.moveCount ?? 0,
+    movesUsed: result.stepsProcessed,
     visibleTraps,
-    keysHeld: view?.keysHeld ?? [],
+    keysHeld: result.keys,
+    // Only the server decides a raid is over; the board already shows the predicted ending.
     over: !!view && view.status !== "active" && view.status !== "abandoned",
     move,
     reset: () => void start(),
@@ -164,7 +172,7 @@ export function useServerRaid(tokenId: number, entrance: { x: number; y: number 
     error,
     practice: view?.practice ?? null,
     raidId: view?.raidId ?? null,
-    busy,
+    busy: !!sync && sync.pending.length > 0,
     retry,
   };
 }

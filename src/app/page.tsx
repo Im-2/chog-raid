@@ -12,42 +12,49 @@ export default function Home() {
     <>
       <DungeonBackdrop />
       <div className={backdrop.above}>
-      <SiteNav />
+        <SiteNav />
 
-      <main>
-        <section className={styles.hero}>
-          <div className={styles.torches} aria-hidden>
-            <span />
-            <span />
+        <main>
+          {/* Asymmetric split: the pitch on the left, today's raid pinned up like a wanted poster on the right. */}
+          <section className={styles.hero}>
+            <span className={`${styles.torch} ${styles.torchLeft}`} aria-hidden />
+            <span className={`${styles.torch} ${styles.torchRight}`} aria-hidden />
+
+            <div className={styles.copy}>
+              <p className={styles.kicker}>
+                <span className="num">1,969</span> Chogs · one shared dungeon · Monad
+              </p>
+              <h1 className={styles.headline}>
+                <span className={styles.line1}>Defend your Chog.</span>
+                <span className={styles.line2}>Raid others.</span>
+              </h1>
+              <p className={styles.pitch}>
+                Every Chog is a room built from its art. Set traps that fight while you&apos;re offline, then break into
+                everyone else&apos;s.
+              </p>
+              <div className={styles.ctas}>
+                <Link href="/raid" className="btn primary" prefetch={false}>
+                  Raid a room
+                </Link>
+                <Link href="/defend" className="btn">
+                  Defend my Chog
+                </Link>
+              </div>
+            </div>
+
+            <div className={styles.posterCol}>
+              <DailyCard />
+            </div>
+          </section>
+
+          <div className="container">
+            <SeasonRecap />
           </div>
-          <h1 className={styles.headline}>
-            Defend your Chog.
-            <br />
-            <span>Raid others.</span>
-          </h1>
-          <p className={styles.pitch}>
-            Every Chog becomes a room in one giant shared dungeon: owners set traps that defend it while they&apos;re
-            offline, and everyone else tries to break through.
-          </p>
-          <div className={styles.ctas}>
-            <Link href="/raid" className="btn primary" prefetch={false}>
-              Raid a room
-            </Link>
-            <Link href="/defend" className="btn">
-              Defend my Chog
-            </Link>
-          </div>
-        </section>
 
-        <div className="container">
-          <SeasonRecap />
-          <DailyCard />
-        </div>
-
-        <section className="container" id="rooms">
-          <RoomBrowser />
-        </section>
-      </main>
+          <section className="container" id="rooms">
+            <RoomBrowser />
+          </section>
+        </main>
       </div>
     </>
   );

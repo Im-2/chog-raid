@@ -42,6 +42,8 @@ export type RaidView = {
   visibleTraps: Trap[];
   /** Indices into visibleTraps of doors whose key is held. */
   keysHeld: number[];
+  /** The raider's own move list so far (e.g. "RRUD"); lets the client predict ahead of the server. */
+  moves: string;
 };
 
 export type Result<T> = { ok: true; value: T } | { ok: false; status: number; error: string; view?: RaidView };
@@ -71,6 +73,7 @@ export function viewOf(room: Room, r: RaidRecord): RaidView {
     guards: result.guards,
     visibleTraps: visible,
     keysHeld: result.keys.map((k) => visible.indexOf(r.traps[k])).filter((i) => i >= 0),
+    moves: r.moves,
   };
 }
 
@@ -111,17 +114,31 @@ export async function startRaid(deps: RaidDeps, tokenId: number, raider: string)
 }
 
 /**
- * Apply move number `seq` (0-based). Retries of an already-applied seq return the current view,
- * so a flaky connection can safely resend. A seq from the future means the client is out of sync.
+ * Apply one move at index `seq` (0-based). See applyMoves.
  */
-export async function applyMove(
+export function applyMove(deps: RaidDeps, raidId: string, raider: string, move: unknown, seq: unknown): Promise<Result<RaidView>> {
+  return applyMoves(deps, raidId, raider, [move], seq);
+}
+
+/**
+ * Apply a batch of moves starting at index `seq` (0-based). Designed for an optimistic client
+ * that keeps sending while earlier requests are in flight:
+ *
+ * - Resends are safe: moves the server already has (same index, same move) are skipped.
+ * - A batch that starts past the end, or disagrees with stored moves, is "out of sync" (409)
+ *   and returns the server's view so the client can reconcile.
+ * - Moves after the raid ends are dropped; once over, further moves are rejected.
+ */
+export async function applyMoves(
   deps: RaidDeps,
   raidId: string,
   raider: string,
-  move: unknown,
+  moves: unknown,
   seq: unknown,
 ): Promise<Result<RaidView>> {
-  if (!isMove(move)) return fail(400, "Move must be U, D, L or R.");
+  if (!Array.isArray(moves) || moves.length === 0 || moves.length > 120 || !moves.every(isMove)) {
+    return fail(400, "Moves must be a non-empty list of U, D, L or R.");
+  }
   if (!Number.isInteger(seq) || (seq as number) < 0) return fail(400, "seq must be a non-negative integer.");
   const rec = await deps.store.getRaid(raidId);
   if (!rec) return fail(404, "Raid not found.");
@@ -130,15 +147,21 @@ export async function applyMove(
   if (!room) return fail(404, "No such Chog.");
 
   const n = seq as number;
-  if (n < rec.moves.length) return { ok: true, value: viewOf(room, rec) };
-  if (n > rec.moves.length) return fail(409, "Out of sync.", viewOf(room, rec));
+  const have = rec.moves.length;
+  if (n > have) return fail(409, "Out of sync.", viewOf(room, rec));
+  const overlap = Math.min(have - n, moves.length);
+  if (rec.moves.slice(n, n + overlap) !== (moves as Move[]).slice(0, overlap).join("")) {
+    return fail(409, "Out of sync.", viewOf(room, rec));
+  }
+  const fresh = (moves as Move[]).slice(overlap);
+  if (fresh.length === 0) return { ok: true, value: viewOf(room, rec) };
   if (rec.status !== "active") return fail(409, "This raid is over.", viewOf(room, rec));
 
-  const moves = rec.moves + move;
-  const result = simulateRaid(room, rec.traps, moves.split("") as Move[]);
+  const all = (rec.moves + fresh.join("")).split("") as Move[];
+  const result = simulateRaid(room, rec.traps, all);
   const next: RaidRecord = {
     ...rec,
-    moves,
+    moves: all.slice(0, result.stepsProcessed).join(""),
     status: result.outcome === "incomplete" ? "active" : result.outcome,
     hp: result.hp,
     movesLeft: result.movesLeft,
@@ -146,13 +169,12 @@ export async function applyMove(
     endY: result.endAt.y,
     updatedAt: new Date().toISOString(),
   };
-  if (!(await deps.store.updateRaid(next, rec.moves.length))) {
+  if (!(await deps.store.updateRaid(next, have))) {
     const cur = await deps.store.getRaid(raidId);
     return fail(409, "Out of sync.", cur ? viewOf(room, cur) : undefined);
   }
   return { ok: true, value: viewOf(room, next) };
 }
-
 export async function getRaidView(deps: RaidDeps, raidId: string, raider: string): Promise<Result<RaidView>> {
   const rec = await deps.store.getRaid(raidId);
   if (!rec) return fail(404, "Raid not found.");

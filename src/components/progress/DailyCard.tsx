@@ -1,8 +1,8 @@
 "use client";
 
-import { chogName } from "@/lib/names";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { chogName, chogTitle } from "@/lib/names";
 import { Countdown } from "./bits";
 import { ChogPool, type ChogState } from "./ChogPool";
 import styles from "./daily.module.css";
@@ -16,7 +16,7 @@ type Daily = {
 };
 type Season = { season: number; endsAt: string; daily: Daily };
 
-/** Today's featured room, its board, the season countdown and (if enabled) the $CHOG pool. */
+/** Today's featured room, pinned to the dungeon notice board like a wanted poster. */
 export function DailyCard() {
   const [data, setData] = useState<Season | null | "error">(null);
   const [chog, setChog] = useState<ChogState | null>(null);
@@ -33,48 +33,63 @@ export function DailyCard() {
   }, []);
 
   if (data === "error") return null;
-  if (!data) return <div className={`${styles.card} skeleton`} style={{ minHeight: 180 }} aria-hidden />;
+  if (!data)
+    return (
+      <div className={styles.board} aria-hidden>
+        <div className={`${styles.poster} ${styles.posterLoading}`}>
+          <div className="skeleton" style={{ aspectRatio: "1", width: "100%" }} />
+        </div>
+      </div>
+    );
   const d = data.daily;
+  const name = chogName(d.tokenId);
+  const title = chogTitle(d.tokenId);
 
   return (
-    <section className={styles.card} aria-labelledby="daily-title">
-      <Link href={`/room/${d.tokenId}`} className={styles.art}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={`/api/chogs/${d.tokenId}/image?s=256`} alt={chogName(d.tokenId)} className="pixel" />
-      </Link>
-      <div className={styles.body}>
-        <p className={styles.kicker}>
-          Daily raid · ends in <Countdown to={d.endsAt} />
-        </p>
-        <h2 id="daily-title" className={styles.title}>
-          <span className="num">{chogName(d.tokenId)}</span>
+    <div className={styles.board}>
+      <i className={styles.nail} data-pos="tl" aria-hidden />
+      <i className={styles.nail} data-pos="tr" aria-hidden />
+      <section className={styles.poster} aria-labelledby="daily-title">
+        <p className={styles.stamp}>Daily raid</p>
+        <Link href={`/room/${d.tokenId}`} className={styles.art} aria-label={`Raid ${name}`}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={`/api/chogs/${d.tokenId}/image?s=256`} alt={name} className="pixel" width={256} height={256} />
+        </Link>
+        <h2 id="daily-title" className={styles.name}>
+          <span className="num">{name.replace(/\s*—.*$/, "")}</span>
+          {title && <small>{title}</small>}
         </h2>
-        <p className="small muted" style={{ margin: "0 0 10px" }}>
-          Same room for everyone today. Clear it for <b style={{ color: "var(--gold)" }}>+{d.bonus}</b> bonus points.
-        </p>
+        <dl className={styles.terms}>
+          <div>
+            <dt>Reward</dt>
+            <dd className="num">+{d.bonus} pts</dd>
+          </div>
+          <div>
+            <dt>Ends in</dt>
+            <dd>
+              <Countdown to={d.endsAt} />
+            </dd>
+          </div>
+        </dl>
+        <Link href={`/room/${d.tokenId}`} className={`btn primary ${styles.raid}`}>
+          Raid today&apos;s room
+        </Link>
         {d.board.length > 0 ? (
-          <ol className={styles.board}>
+          <ol className={styles.top}>
             {d.board.slice(0, 3).map((e) => (
               <li key={e.place} data-me={e.me || undefined}>
-                <span className="num">{e.place}</span> {e.label} <b className="num">{e.moves}</b>
+                <span className="num">{e.place}.</span> {e.label} <b className="num">{e.moves}</b>
               </li>
             ))}
           </ol>
         ) : (
-          <p className="small" style={{ margin: "0 0 10px", color: "var(--torch)" }}>
-            No clears yet today. Take first place.
-          </p>
+          <p className={styles.first}>No one has cleared it today. Take first place.</p>
         )}
-        <div className={styles.actions}>
-          <Link href={`/room/${d.tokenId}`} className="btn primary">
-            Raid today&apos;s room
-          </Link>
-          <Link href="/leaderboards" className="btn">
-            Season {data.season + 1} · <Countdown to={data.endsAt} />
-          </Link>
-        </div>
-        {chog?.enabled && <ChogPool state={chog} />}
-      </div>
-    </section>
+        <Link href="/leaderboards" className={styles.season}>
+          Season {data.season + 1} ends in <Countdown to={data.endsAt} /> →
+        </Link>
+      </section>
+      {chog?.enabled && <ChogPool state={chog} />}
+    </div>
   );
 }

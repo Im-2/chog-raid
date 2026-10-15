@@ -40,11 +40,11 @@ export default function DefendStart() {
     <>
       <SiteNav />
       <main className="container">
-        <section className={styles.hero} style={{ paddingBottom: 24 }}>
-          <h1 className={styles.headline} style={{ fontSize: "clamp(34px, 7vw, 56px)" }}>
+        <section className={styles.solo} style={{ paddingLeft: 0, paddingRight: 0 }}>
+          <h1 className={styles.soloHeadline}>
             Defend <span>your Chog</span>
           </h1>
-          <p className={styles.pitch}>
+          <p className={styles.soloPitch}>
             Your Chog&apos;s room fights for you while you&apos;re offline. Place traps in its slots, test the room, and
             watch who gets through.
           </p>
@@ -110,7 +110,7 @@ export default function DefendStart() {
           </section>
         )}
 
-        <section style={{ maxWidth: 420, margin: "40px auto 0", textAlign: "center" }}>
+        <section style={{ maxWidth: 420, margin: "40px 0 0" }}>
           <p className="small muted">Or open any Chog&apos;s armory to draft and test a defense (only its holder can save it):</p>
           <form
             onSubmit={(e) => {

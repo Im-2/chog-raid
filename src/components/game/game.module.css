@@ -543,3 +543,38 @@
   cursor: pointer;
   text-decoration: underline;
 }
+
+/* ---------- Touch & phone performance ---------- */
+.screen {
+  -webkit-tap-highlight-color: transparent;
+}
+.dpad,
+.dpadBtn,
+.boardFrame {
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.boardFrame canvas {
+  touch-action: none; /* swipes are moves, never scroll or zoom */
+}
+
+/* Phones: drop the costly glows, drop-shadow filters and looping flicker. */
+@media (hover: none) and (pointer: coarse) {
+  .boardFrame {
+    box-shadow: 0 0 0 3px var(--ink), 0 0 0 9px #241911, 0 0 0 12px var(--ink);
+  }
+  .boardFrame::before,
+  .boardFrame::after {
+    animation: none;
+    box-shadow: none;
+  }
+  .heart {
+    filter: none;
+  }
+  .result,
+  .result[data-won] {
+    box-shadow: 0 0 0 3px var(--ink);
+  }
+}
