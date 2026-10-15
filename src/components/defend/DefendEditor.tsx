@@ -8,6 +8,8 @@ import {
   DIRS,
   TRAP_INFO,
   validateTraps,
+  withNative,
+  legacyRoom,
   type Move,
   type Point,
   type RaidOutcome,
@@ -88,7 +90,8 @@ function SaveBox({
   );
 }
 
-type LogEntry = { id: string; at: number; moves: Move[]; traps: Trap[]; outcome: RaidOutcome; hp: number };
+/** `native` is false/missing for raids from before native defenses; those replay on legacyRoom. */
+type LogEntry = { id: string; at: number; moves: Move[]; traps: Trap[]; outcome: RaidOutcome; hp: number; native?: boolean };
 type Tool = TrapType | "erase";
 
 const ALL: TrapType[] = ["spike", "teleporter", "guard", "lockdoor"];
@@ -110,11 +113,11 @@ const save = (key: string, v: unknown) => {
 };
 
 function TestRaid({ room, traps, sound, onDone, onExit }: { room: Room; traps: Trap[]; sound: boolean; onDone: (e: LogEntry) => void; onExit: () => void }) {
-  const raid = useLocalRaid(room, traps);
+  const raid = useLocalRaid(room, traps); // traps here already include the room's native defenses
   const { move, reset, result, over, moves } = raid;
 
   useEffect(() => {
-    if (over) onDone({ id: `${Date.now()}`, at: Date.now(), moves, traps, outcome: result.outcome, hp: result.hp });
+    if (over) onDone({ id: `${Date.now()}`, at: Date.now(), moves, traps, outcome: result.outcome, hp: result.hp, native: true });
     // only when the raid ends
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [over]);
@@ -192,7 +195,7 @@ export function DefendEditor({ room, chog, owner }: { room: Room; chog: ChogSumm
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
         if (!j) return;
-        setReplay({ id: "server", at: 0, outcome: "incomplete", hp: 0, traps: j.traps, moves: j.moves });
+        setReplay({ id: "server", at: 0, outcome: "incomplete", hp: 0, traps: j.traps, moves: j.moves, native: j.native });
         setPanel("replay");
       })
       .catch(() => {});
@@ -309,7 +312,7 @@ export function DefendEditor({ room, chog, owner }: { room: Room; chog: ChogSumm
 
   const ghostPath = useMemo(() => {
     if (!showPath) return undefined;
-    const moves = findSafePath(room, traps);
+    const moves = findSafePath(room, withNative(room, traps));
     if (!moves) return undefined;
     const pts: Point[] = [room.entrance];
     for (const m of moves) {
@@ -361,7 +364,7 @@ export function DefendEditor({ room, chog, owner }: { room: Room; chog: ChogSumm
       {mode === "test" ? (
         <div className={gameStyles.stage}>
           <div className={gameStyles.boardCol}>
-            <TestRaid room={room} traps={traps} sound={sound} onDone={addLog} onExit={() => setMode("edit")} />
+            <TestRaid room={room} traps={withNative(room, traps)} sound={sound} onDone={addLog} onExit={() => setMode("edit")} />
           </div>
         </div>
       ) : (
@@ -545,7 +548,7 @@ export function DefendEditor({ room, chog, owner }: { room: Room; chog: ChogSumm
         <RoomInfo chog={chog} room={room} />
       </Sheet>
       <Sheet open={panel === "replay" && !!replay} onClose={() => setPanel("none")} title="Raid replay">
-        {replay && <ReplayPlayer room={room} traps={replay.traps} moves={replay.moves} sound={sound} />}
+        {replay && <ReplayPlayer room={replay.native ? room : legacyRoom(room)} traps={replay.traps} moves={replay.moves} sound={sound} />}
       </Sheet>
     </div>
   );

@@ -8,3 +8,5 @@ export { resolveRules, TRAIT_RULES } from "./traitRules";
 export { hashString, mulberry32, pickWeighted } from "./rng";
 export { toHex } from "./color";
 export { isMove, DIRS } from "./grid";
+export { tierOf, withNative, difficultyOf, pathPoints, bossFor, legacyRoom, roomForRaid, fitTraps, NATIVE_ENGINE } from "./native";
+export type { SearchStart } from "./traps";

@@ -2,7 +2,7 @@
 // so when a Chog is transferred the new holder takes over the room immediately.
 
 import { chogName } from "@/lib/names";
-import { GAME, validateTraps, type Trap } from "@/engine";
+import { fitTraps, GAME, validateTraps, type Trap } from "@/engine";
 import { sameAddress } from "./auth";
 import type { RaidDeps, Result } from "./raids";
 
@@ -56,13 +56,15 @@ export async function getDefenseView(deps: RaidDeps, tokenId: number, viewer: st
   const [owner, defense] = await Promise.all([deps.ownerOf(tokenId), deps.store.getDefense(tokenId)]);
   if (!owner) return { ok: false, status: 404, error: "No such Chog." };
   const isOwner = sameAddress(owner, viewer);
+  // Saved traps that now overlap a native defense are dropped, so the editor opens on a valid setup.
+  const room = isOwner && defense ? await deps.getRoom(tokenId) : null;
   return {
     ok: true,
     value: {
       tokenId,
       owner,
       isOwner,
-      traps: isOwner ? (defense?.traps ?? null) : null,
+      traps: isOwner && defense ? (room ? fitTraps(room, defense.traps) : defense.traps) : null,
       defended: !!defense,
       updatedAt: defense?.updatedAt ?? null,
     },

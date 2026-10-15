@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findSafePath, generateRoom, sampleTraps, simulateRaid, type Move, type Trap } from "@/engine";
+import { findSafePath, generateRoom, legacyRoom, NATIVE_ENGINE, sampleTraps, simulateRaid, withNative, type Move, type Trap } from "@/engine";
 import { mockPixels, mockTraits } from "@/nft/mockArt";
 import { applyMove, getReplay, listRoomRaids, startRaid, visibleTraps, type RaidDeps, type RaidView } from "./raids";
 import { createMemoryStore } from "./store/memory";
@@ -157,5 +157,43 @@ describe("server raids", () => {
     const r = await startRaid(deps, 999, "alice");
     expect(r.ok).toBe(false);
   });
-});
 
+  describe("native defenses", () => {
+    const epic = generateRoom({ tokenId: 42, pixels: mockPixels(42), traits: [{ trait_type: "Tier", value: "Epic" }] });
+    const epicDeps = (store = createMemoryStore()): RaidDeps => ({ store, getRoom: async () => epic, ownerOf: async () => "0xOwner" });
+
+    it("are always part of a raid, and the raid is stamped with the engine version", async () => {
+      const store = createMemoryStore();
+      const v = ok(await startRaid(epicDeps(store), 42, "alice"));
+      const saved = (await store.getRaid(v.raidId))!;
+      expect(saved.engine).toBe(NATIVE_ENGINE);
+      expect(saved.traps.slice(0, epic.native.traps.length)).toEqual(epic.native.traps);
+      // Built-in guards and doors are visible from the first step.
+      for (const t of epic.native.traps) expect(v.visibleTraps).toContainEqual(t);
+    });
+
+    it("drop saved owner traps that now overlap a native piece", async () => {
+      const store = createMemoryStore();
+      const guard = epic.native.traps.find((t) => t.type === "guard")!;
+      const fine = sampleTraps(epic, 3)[0];
+      store.state.defenses["42"] = { tokenId: 42, owner: "0xowner", traps: [{ type: "spike", x: guard.x, y: guard.y }, fine], updatedAt: "" };
+      const v = ok(await startRaid(epicDeps(store), 42, "alice"));
+      expect((await store.getRaid(v.raidId))!.traps).toEqual(withNative(epic, [fine]));
+    });
+
+    it("leave raids recorded before them replaying exactly on the legacy room", async () => {
+      const store = createMemoryStore();
+      const old = legacyRoom(epic);
+      const traps = sampleTraps(old, 9);
+      const moves = findSafePath(old, traps)!;
+      const end = simulateRaid(old, traps, moves);
+      store.state.raids["old"] = {
+        id: "old", tokenId: 42, raider: "alice", practice: true, defender: null, traps, moves: moves.join(""),
+        status: "breach", hp: end.hp, movesLeft: end.movesLeft, endX: end.endAt.x, endY: end.endAt.y, createdAt: "", updatedAt: "",
+      };
+      const r = ok(await getReplay(epicDeps(store), "old", "alice"));
+      expect(r.native).toBe(false);
+      expect(simulateRaid(legacyRoom(epic), r.traps, r.moves).outcome).toBe("breach");
+    });
+  });
+});

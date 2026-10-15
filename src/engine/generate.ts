@@ -1,8 +1,10 @@
-﻿import { classifyPixel, colorDistance, toHex } from "./color";
+import { classifyPixel, colorDistance, toHex } from "./color";
 import { CARVE_COST, COLOR_RULES, GAME, ROOM_SIZE } from "./config";
 import { DIR_ORDER, inBounds, samePoint, step } from "./grid";
 import { MinHeap } from "./heap";
 import { hashString, mulberry32, randInt } from "./rng";
+import { TIERS } from "@/config/tiers";
+import { bossFor, buildNative, difficultyOf, tierOf } from "./native";
 import { resolveRules } from "./traitRules";
 import type { Pixel, Point, Room, RoomInput, Tile } from "./types";
 
@@ -29,6 +31,12 @@ export function generateRoom(input: RoomInput): Room {
   const colors = input.pixels.map(toHex);
   const carved: boolean[] = new Array(n).fill(false);
   const { rules, hazardSprinkle } = resolveRules(input.traits);
+  // Tier sets the raider's limits and extra owner slots; native defenses are added at the end.
+  const tierId = tierOf(input.traits);
+  const spec = TIERS[tierId];
+  rules.raiderHp = spec.raiderHp;
+  rules.maxMoves = spec.maxMoves;
+  rules.trapSlots = Math.min(GAME.maxTrapSlots + spec.extraTrapSlots, rules.trapSlots + spec.extraTrapSlots);
 
   const entrance = { x: 0, y: 2 + randInt(rng, size - 4) };
   const exit = { x: size - 1, y: 2 + randInt(rng, size - 4) };
@@ -54,14 +62,33 @@ export function generateRoom(input: RoomInput): Room {
 
   for (const p of cheapestPath(tiles, size, entrance, exit)) open(p);
 
-  if (walkCost(tiles, size, entrance, exit) > GAME.maxMoves) {
+  if (walkCost(tiles, size, entrance, exit) > rules.maxMoves) {
     // Practically unreachable on a 16x16 grid, but keep the guarantee hard.
     for (let x = 0; x < size; x++) open({ x, y: entrance.y });
     const dy = Math.sign(exit.y - entrance.y);
     for (let y = entrance.y; y !== exit.y; y += dy) open({ x: size - 1, y });
   }
 
-  return { tokenId: input.tokenId, size, seed, tiles, colors, carved, entrance, exit, rules };
+  const boss = tierId === "legendary" ? bossFor(input.title) : null;
+  const room: Room = {
+    tokenId: input.tokenId,
+    size,
+    seed,
+    tiles,
+    colors,
+    carved,
+    entrance,
+    exit,
+    rules,
+    tier: { id: tierId, level: spec.level, name: spec.name, label: spec.label, lightRadius: spec.lightRadius + (boss?.lightRadiusDelta ?? 0) },
+    native: { traps: [], walls: [], hazards: [], moat: [], boss: null },
+    difficulty: { score: 0, rating: 1 },
+  };
+  room.native = buildNative(room, spec, boss);
+  room.difficulty = difficultyOf(room);
+  if (spec.level > 1) rules.notes.unshift(`${spec.name} tier: native defenses built in (${spec.label.toLowerCase()})`);
+  if (room.native.boss) rules.notes.unshift(`Boss room, ${room.native.boss.name}: ${room.native.boss.blurb}`);
+  return room;
 }
 
 /** Background flood fill: border-connected pixels close to the dominant border color. */

@@ -17,6 +17,8 @@ export type RaidRecord = {
   par?: number | null;
   /** Room difficulty 1-5 at raid start (see roomDifficulty). */
   difficulty?: number;
+  /** Engine version (NATIVE_ENGINE once rooms have native defenses); missing = legacy room. */
+  engine?: number;
   /** Traps as they were when the raid started, so replays stay exact after edits. */
   traps: Trap[];
   moves: string;

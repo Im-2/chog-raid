@@ -16,6 +16,11 @@ const INPUTS_VERSION = 1;
 type RoomInputs = { chog: Chog; pixels: string };
 
 const encode = (px: Pixel[]) => px.map(([r, g, b]) => ((r << 16) | (g << 8) | b).toString(16).padStart(6, "0")).join("");
+/** The 1/1 title in a metadata name ("CHOG #53 — Blaze" -> "Blaze"); boss rooms are keyed by it. */
+const titleOf = (chog: Chog) => /—\s*(.+)$/.exec(chog.name)?.[1] ?? null;
+const roomFor = (tokenId: number, chog: Chog, pixels: Pixel[]) =>
+  generateRoom({ tokenId, pixels, traits: chog.traits, title: titleOf(chog) });
+
 const decode = (s: string): Pixel[] =>
   Array.from({ length: s.length / 6 }, (_, i) => {
     const n = parseInt(s.slice(i * 6, i * 6 + 6), 16);
@@ -28,13 +33,12 @@ async function build(tokenId: number): Promise<{ chog: Chog; room: Room } | null
   const store = getStore();
   const saved = await store.getKv<RoomInputs>(key).catch(() => null);
   if (saved) {
-    const pixels = decode(saved.pixels);
-    return { chog: saved.chog, room: generateRoom({ tokenId, pixels, traits: saved.chog.traits }) };
+    return { chog: saved.chog, room: roomFor(tokenId, saved.chog, decode(saved.pixels)) };
   }
   const [chog, pixels] = await Promise.all([adapter.getChog(tokenId), adapter.getPixels(tokenId)]);
   if (!chog || !pixels) return null;
   void store.setKv(key, { chog, pixels: encode(pixels) } satisfies RoomInputs).catch(() => {});
-  return { chog, room: generateRoom({ tokenId, pixels, traits: chog.traits }) };
+  return { chog, room: roomFor(tokenId, chog, pixels) };
 }
 
 /** Build a Chog's room from the adapter. Same Chog => same room, on any server. */

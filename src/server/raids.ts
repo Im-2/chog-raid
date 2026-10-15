@@ -3,10 +3,13 @@
 // whole list with the shared engine, and returns only what the raider can see.
 
 import { randomUUID } from "node:crypto";
-import { roomDifficulty } from "@/config/retention";
 import {
   findSafePath,
   isMove,
+  withNative,
+  fitTraps,
+  roomForRaid,
+  NATIVE_ENGINE,
   sampleTraps,
   simulateRaid,
   type Move,
@@ -56,7 +59,8 @@ export function visibleTraps(room: Room, traps: Trap[], path: Point[]): Trap[] {
   return traps.filter((t) => t.type === "guard" || t.type === "lockdoor" || stepped.has(t.y * room.size + t.x));
 }
 
-export function viewOf(room: Room, r: RaidRecord): RaidView {
+export function viewOf(current: Room, r: RaidRecord): RaidView {
+  const room = roomForRaid(current, r.engine);
   const result = simulateRaid(room, r.traps, r.moves.split("") as Move[]);
   const visible = visibleTraps(room, r.traps, result.path);
   return {
@@ -80,9 +84,10 @@ export function viewOf(room: Room, r: RaidRecord): RaidView {
 /** Traps used for a room right now: the owner's saved defense, or seeded practice traps. */
 export async function trapsFor(deps: RaidDeps, room: Room): Promise<{ traps: Trap[]; practice: boolean; defender: string | null }> {
   const defense = await deps.store.getDefense(room.tokenId);
+  // The room's native defenses always come first; the owner's traps (or practice traps) go on top.
   return defense
-    ? { traps: defense.traps, practice: false, defender: defense.owner }
-    : { traps: sampleTraps(room, room.seed), practice: true, defender: null };
+    ? { traps: withNative(room, fitTraps(room, defense.traps)), practice: false, defender: defense.owner }
+    : { traps: withNative(room, sampleTraps(room, room.seed)), practice: true, defender: null };
 }
 
 export async function startRaid(deps: RaidDeps, tokenId: number, raider: string): Promise<Result<RaidView>> {
@@ -98,7 +103,8 @@ export async function startRaid(deps: RaidDeps, tokenId: number, raider: string)
     practice,
     defender,
     par: findSafePath(room, traps)?.length ?? null,
-    difficulty: roomDifficulty(room.rules, room.tiles.filter((t) => t === "hazard").length),
+    difficulty: room.tier.level,
+    engine: NATIVE_ENGINE,
     traps,
     moves: "",
     status: "active",
@@ -158,7 +164,7 @@ export async function applyMoves(
   if (rec.status !== "active") return fail(409, "This raid is over.", viewOf(room, rec));
 
   const all = (rec.moves + fresh.join("")).split("") as Move[];
-  const result = simulateRaid(room, rec.traps, all);
+  const result = simulateRaid(roomForRaid(room, rec.engine), rec.traps, all);
   const next: RaidRecord = {
     ...rec,
     moves: all.slice(0, result.stepsProcessed).join(""),
@@ -184,10 +190,18 @@ export async function getRaidView(deps: RaidDeps, raidId: string, raider: string
   return { ok: true, value: viewOf(room, rec) };
 }
 
-export type Replay = { raidId: string; tokenId: number; practice: boolean; status: RaidStatus; traps: Trap[]; moves: Move[] };
+export type Replay = {
+  raidId: string;
+  tokenId: number;
+  practice: boolean;
+  status: RaidStatus;
+  traps: Trap[];
+  moves: Move[];
+  /** False for raids recorded before native defenses: replay them on legacyRoom(room). */
+  native: boolean;
+};
 
 /**
-
  * Full replay, including every trap. Only for finished raids, and only for practice raids,
  * the raider, or the room's current holder.
  */
@@ -201,7 +215,7 @@ export async function getReplay(deps: RaidDeps, raidId: string, requester: strin
   }
   return {
     ok: true,
-    value: { raidId: rec.id, tokenId: rec.tokenId, practice: rec.practice, status: rec.status, traps: rec.traps, moves: rec.moves.split("") as Move[] },
+    value: { raidId: rec.id, tokenId: rec.tokenId, practice: rec.practice, status: rec.status, traps: rec.traps, moves: rec.moves.split("") as Move[], native: rec.engine === NATIVE_ENGINE },
   };
 }
 

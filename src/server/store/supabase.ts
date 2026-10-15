@@ -9,7 +9,8 @@ type RaidRow = {
   defender: string | null;
   par: number | null;
   difficulty: number | null;
-  traps: RaidRecord["traps"];
+  /** A plain array for legacy raids, or { engine, traps } once rooms have native defenses. */
+  traps: RaidRecord["traps"] | { engine: number; traps: RaidRecord["traps"] };
   moves: string;
   move_count: number;
   status: RaidRecord["status"];
@@ -29,7 +30,7 @@ const toRow = (r: RaidRecord): RaidRow => ({
   defender: r.defender,
   par: r.par ?? null,
   difficulty: r.difficulty ?? null,
-  traps: r.traps,
+  traps: r.engine ? { engine: r.engine, traps: r.traps } : r.traps,
   moves: r.moves,
   move_count: r.moves.length,
   status: r.status,
@@ -49,7 +50,7 @@ const fromRow = (r: RaidRow): RaidRecord => ({
   defender: r.defender,
   par: r.par,
   difficulty: r.difficulty ?? undefined,
-  traps: r.traps,
+  ...(Array.isArray(r.traps) ? { traps: r.traps } : { traps: r.traps.traps, engine: r.traps.engine }),
   moves: r.moves,
   status: normalizeStatus(r.status),
   hp: r.hp,

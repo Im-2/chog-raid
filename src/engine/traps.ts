@@ -50,7 +50,13 @@ export function validateTraps(room: Room, traps: Trap[]): TrapCheck {
   if (traps.filter((t) => t.type === "lockdoor").length > GAME.maxLockdoors) {
     return { ok: false, error: `At most ${GAME.maxLockdoors} lock doors.` };
   }
+  // Native defenses occupy their tiles; the owner's traps go on top of them.
+  const native = room.native?.traps ?? [];
   const used = new Set<number>();
+  for (const t of native) {
+    used.add(t.y * room.size + t.x);
+    if (t.type === "lockdoor") used.add(t.key.y * room.size + t.key.x);
+  }
   const claim = (p: Point, what: string): string | null => {
     if (!Number.isInteger(p.x) || !Number.isInteger(p.y) || !inBounds(room.size, p)) {
       return `${what} is outside the room.`;
@@ -59,7 +65,7 @@ export function validateTraps(room: Room, traps: Trap[]): TrapCheck {
     const t = tileAt(room, p);
     if (t !== "floor" && t !== "water") return `${what} must go on floor or water.`;
     const i = p.y * room.size + p.x;
-    if (used.has(i)) return `Two things on tile ${p.x},${p.y}.`;
+    if (used.has(i)) return `Tile ${p.x},${p.y} is already taken (a native defense or another trap).`;
     used.add(i);
     return null;
   };
@@ -73,7 +79,7 @@ export function validateTraps(room: Room, traps: Trap[]): TrapCheck {
       (t.type === "guard" && t.axis !== "h" && t.axis !== "v" ? "Guard needs an axis." : null);
     if (err) return { ok: false, error: err };
   }
-  if (!findSafePath(room, traps)) {
+  if (!findSafePath(room, [...native, ...traps])) {
     return { ok: false, error: "That setup makes the room impossible. Raiders need a fair path to the exit." };
   }
   return { ok: true };
@@ -86,7 +92,9 @@ export function validateTraps(room: Room, traps: Trap[]): TrapCheck {
  * so the real raid along this path can only take less damage. Teleporters are
  * avoided entirely. Returns null when no fair path exists.
  */
-export function findSafePath(room: Room, traps: Trap[]): Move[] | null {
+export type SearchStart = { at: Point; keys: number[]; damage: number; movesUsed: number };
+
+export function findSafePath(room: Room, traps: Trap[], from?: SearchStart): Move[] | null {
   const { size, rules } = room;
   const n = size * size;
   const hp = rules.raiderHp;
@@ -111,11 +119,15 @@ export function findSafePath(room: Room, traps: Trap[]): Move[] | null {
   traps.forEach((t, ti) => t.type === "lockdoor" && doorBit.set(ti, 1 << doorBit.size));
 
   const stateId = (cell: number, keys: number, dmg: number) => (keys * hp + dmg) * n + cell;
-  const start = stateId(room.entrance.y * size + room.entrance.x, 0, 0);
-  const cost = new Map<number, number>([[start, 0]]);
+  const startKeys = (from?.keys ?? []).reduce((b, k) => b | (doorBit.get(k) ?? 0), 0);
+  const startDmg = from?.damage ?? 0;
+  if (startDmg >= hp) return null;
+  const at = from?.at ?? room.entrance;
+  const start = stateId(at.y * size + at.x, startKeys, startDmg);
+  const cost = new Map<number, number>([[start, from?.movesUsed ?? 0]]);
   const prev = new Map<number, [number, Move]>();
   const heap = new MinHeap<number>();
-  heap.push(0, start);
+  heap.push(from?.movesUsed ?? 0, start);
 
   while (heap.size > 0) {
     const s = heap.pop()!;

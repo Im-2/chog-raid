@@ -21,6 +21,20 @@ export type RoomInput = {
   /** ROOM_SIZE * ROOM_SIZE pixels, row-major, already downsampled. */
   pixels: Pixel[];
   traits: Trait[];
+  /** 1/1 title from the metadata name ("CHOG #53 — Blaze" -> "Blaze"), for boss rooms. */
+  title?: string | null;
+};
+
+export type TierId = "common" | "uncommon" | "rare" | "epic" | "legendary";
+
+/** Built-in defenses every room of a tier gets. Always on; the owner can't remove them. */
+export type NativeDefenses = {
+  traps: Trap[];
+  /** Tile indices the tier turned into walls / embers / water. */
+  walls: number[];
+  hazards: number[];
+  moat: number[];
+  boss: { title: string; name: string; blurb: string } | null;
 };
 
 export type RoomRules = {
@@ -45,6 +59,10 @@ export type Room = {
   entrance: Point;
   exit: Point;
   rules: RoomRules;
+  tier: { id: TierId; level: number; name: string; label: string; lightRadius: number };
+  native: NativeDefenses;
+  /** 0-100 score from the room's real layout and defenses, and its 1-5 star rating. */
+  difficulty: { score: number; rating: number };
 };
 
 export type Move = "U" | "D" | "L" | "R";
