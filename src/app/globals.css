@@ -223,3 +223,14 @@ input:focus-visible {
   font-family: var(--font-num);
   font-variant-numeric: tabular-nums;
 }
+/* Flaming cursor (desktop mouse only; set by FireCursor). Links and buttons keep the hand. */
+html[data-fire-cursor],
+html[data-fire-cursor] body {
+  cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 12 12' shape-rendering='crispEdges'><path fill='%230b0806' d='M5 0h2v1h1v2h1v1h1v5H9v1H8v1H4v-1H3V9H2V4h1V3h1V1h1z'/><path fill='%23ff7a2f' d='M5 1h2v2h1v1h1v5H8v1H4V9H3V4h1V3h1z'/><path fill='%23ffb347' d='M5 4h2v1h1v4H7v1H5V9H4V5h1z'/><path fill='%23fff3c4' d='M5 7h2v2H5z'/></svg>") 12 4, auto;
+}
+html[data-fire-cursor] a,
+html[data-fire-cursor] button,
+html[data-fire-cursor] [role="button"],
+html[data-fire-cursor] label {
+  cursor: pointer;
+}

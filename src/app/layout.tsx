@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Pixelify_Sans, Silkscreen } from "next/font/google";
+import { FireCursor } from "@/components/ui/FireCursor";
 import "./globals.css";
 
 const pixelify = Pixelify_Sans({ subsets: ["latin"], variable: "--font-pixelify", display: "swap" });
@@ -16,7 +17,10 @@ export const viewport: Viewport = { width: "device-width", initialScale: 1, them
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${pixelify.variable} ${silkscreen.variable}`}>
-      <body>{children}</body>
+      <body>
+        {children}
+        <FireCursor />
+      </body>
     </html>
   );
 }
