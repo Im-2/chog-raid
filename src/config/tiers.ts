@@ -54,13 +54,13 @@ export const TIERS: Record<TierId, TierSpec> = {
   },
   epic: {
     id: "epic", level: 4, name: "Epic", label: "Fortress",
-    wallDensity: 0.2, hazards: 8, guards: 3, doors: 1, keyMinDistance: 9,
+    wallDensity: 0.28, hazards: 10, guards: 4, doors: 1, keyMinDistance: 10,
     raiderHp: 4, maxMoves: 48, extraTrapSlots: 1, lightRadius: 4, pointsMultiplier: 2,
   },
   legendary: {
     id: "legendary", level: 5, name: "Legendary", label: "Boss room",
-    wallDensity: 0.2, hazards: 10, guards: 3, doors: 2, keyMinDistance: 9,
-    raiderHp: 4, maxMoves: 46, extraTrapSlots: 2, lightRadius: 3.5, pointsMultiplier: 3,
+    wallDensity: 0.28, hazards: 12, guards: 4, doors: 2, keyMinDistance: 10,
+    raiderHp: 4, maxMoves: 44, extraTrapSlots: 3, lightRadius: 3.5, pointsMultiplier: 3,
   },
 };
 

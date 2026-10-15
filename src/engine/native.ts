@@ -141,19 +141,36 @@ export function buildNative(room: Room, spec: TierSpec, boss: (BossSignature & {
     }
   }
 
-  // 5. Guards patrolling near the fair route.
+  // 5. Guards patrolling across or beside the fair route (both patrol axes are tried, so a guard
+  //    can cut across a corridor instead of walking down it).
   const guardTarget = spec.guards + (boss?.extraGuards ?? 0);
   for (let g = 0; g < guardTarget; g++) {
-    const route = pathPoints(room, findSafePath(room, native.traps) ?? []);
-    let placed = false;
-    for (const p of shuffle(rng, route.slice(2, -2).filter(free)).slice(0, 12)) {
-      const trap: Trap = { type: "guard", x: p.x, y: p.y, axis: rng() < 0.5 ? "h" : "v" };
-      if (fair([...native.traps, trap])) {
-        native.traps.push(trap);
-        claim(p);
-        placed = true;
-        break;
+    const route = pathPoints(room, findSafePath(room, native.traps) ?? []).slice(2, -2);
+    const near = new Set<number>();
+    for (const p of route) {
+      for (let dy = -2; dy <= 2; dy++) {
+        for (let dx = -2; dx <= 2; dx++) {
+          const q = { x: p.x + dx, y: p.y + dy };
+          if (Math.abs(dx) + Math.abs(dy) <= 2 && inBounds(size, q) && free(q)) near.add(at(q));
+        }
       }
+    }
+    // Spots on the route first, then beside it.
+    const onRoute = shuffle(rng, route.filter(free));
+    const beside = shuffle(rng, [...near].map((i) => ({ x: i % size, y: Math.floor(i / size) })));
+    let placed = false;
+    for (const p of [...onRoute, ...beside].slice(0, 40)) {
+      const first: "h" | "v" = rng() < 0.5 ? "h" : "v";
+      for (const axis of [first, first === "h" ? "v" : "h"] as const) {
+        const trap: Trap = { type: "guard", x: p.x, y: p.y, axis };
+        if (fair([...native.traps, trap])) {
+          native.traps.push(trap);
+          claim(p);
+          placed = true;
+          break;
+        }
+      }
+      if (placed) break;
     }
     if (!placed) break;
   }

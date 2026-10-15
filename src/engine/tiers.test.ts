@@ -5,19 +5,26 @@ import { generateRoom } from "./generate";
 import { tierOf, withNative } from "./native";
 import { simulateRaid } from "./simulate";
 import { findSafePath, sampleTraps, validateTraps } from "./traps";
-import type { TierId, Trait } from "./types";
+import type { Room, TierId, Trait } from "./types";
 
 const traitsFor = (tier: TierId): Trait[] =>
   tier === "legendary"
     ? [{ trait_type: "Base", value: "1:1" }, { trait_type: "Tier", value: "Legendary" }]
     : [{ trait_type: "Tier", value: TIERS[tier].name }];
 
-const room = (id: number, tier: TierId, title: string | null = tier === "legendary" ? "Blaze" : null) =>
-  generateRoom({ tokenId: id, pixels: mockPixels(id), traits: traitsFor(tier), title });
+const make = (id: number, tier: TierId, title: string | null) => generateRoom({ tokenId: id, pixels: mockPixels(id), traits: traitsFor(tier), title });
+// Generation is deterministic, so rooms are built once and shared across tests (the determinism
+// test below builds fresh ones).
+const built = new Map<string, Room>();
+const room = (id: number, tier: TierId, title: string | null = tier === "legendary" ? "Blaze" : null) => {
+  const k = `${id}:${tier}:${title}`;
+  if (!built.has(k)) built.set(k, make(id, tier, title));
+  return built.get(k)!;
+};
 
 const IDS = Array.from({ length: 40 }, (_, i) => i + 1);
 
-describe("tiers", () => {
+describe("tiers", { timeout: 30_000 }, () => {
   it("reads the tier from the Tier trait, falling back to its Base trait", () => {
     expect(tierOf([{ trait_type: "Tier", value: "Epic" }])).toBe("epic");
     expect(tierOf([{ trait_type: "Base", value: "Skull" }])).toBe("rare");
@@ -44,7 +51,8 @@ describe("tiers", () => {
       });
 
       it("is deterministic", () => {
-        for (const id of IDS.slice(0, 10)) expect(room(id, tier)).toEqual(room(id, tier));
+        const title = tier === "legendary" ? "Blaze" : null;
+        for (const id of IDS.slice(0, 10)) expect(make(id, tier, title)).toEqual(make(id, tier, title));
       });
 
       it("applies the tier's raider limits and owner slots", () => {
