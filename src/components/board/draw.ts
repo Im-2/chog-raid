@@ -184,8 +184,8 @@ const lightMasks = new Map<string, HTMLCanvasElement>();
  * Pre-rendered torchlight: a radial darkness mask, clear at the raider and dark past the torch
  * radius. Built once per radius at low resolution and drawn scaled; never rebuilt per frame.
  */
-export function lightMask(radiusTiles: number, roomSize: number): HTMLCanvasElement {
-  const key = `${radiusTiles}:${roomSize}`;
+export function lightMask(radiusTiles: number, roomSize: number, edge = 0.7): HTMLCanvasElement {
+  const key = `${radiusTiles}:${roomSize}:${edge}`;
   let c = lightMasks.get(key);
   if (c) return c;
   const span = roomSize * 2; // tiles covered, so the mask covers the room from any position
@@ -197,8 +197,8 @@ export function lightMask(radiusTiles: number, roomSize: number): HTMLCanvasElem
   const mid = (span * res) / 2;
   const g = ctx.createRadialGradient(mid, mid, radiusTiles * res * 0.35, mid, mid, radiusTiles * res * 1.15);
   g.addColorStop(0, "rgba(6,4,3,0)");
-  g.addColorStop(0.7, "rgba(6,4,3,0.35)");
-  g.addColorStop(1, "rgba(6,4,3,0.7)");
+  g.addColorStop(0.7, `rgba(6,4,3,${edge / 2})`);
+  g.addColorStop(1, `rgba(6,4,3,${edge})`);
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, c.width, c.height);
   lightMasks.set(key, c);
@@ -486,4 +486,17 @@ export function drawNativeMark(ctx: CanvasRenderingContext2D, room: Room, px: nu
   ctx.fillRect(cx - 1, cy - 4, 2, 8);
   ctx.fillRect(cx - 4, cy - 1, 8, 2);
   ctx.fillRect(cx - 2, cy - 2, 4, 4);
+}
+
+const HOURGLASS = ["gggggg", ".gssg.", "..gg..", "..gg..", ".gssg.", "gssssg", "gggggg"];
+
+/** A "+moves" pickup: a bobbing hourglass on a soft green glow. */
+export function drawPickup(ctx: CanvasRenderingContext2D, p: Point, t: number) {
+  const x = p.x * T;
+  const y = p.y * T;
+  const k = 0.5 + 0.5 * Math.sin(t * 3 + p.x);
+  ctx.fillStyle = `rgba(127,210,140,${0.18 + 0.15 * k})`;
+  ctx.fillRect(x + 6, y + 6, T - 12, T - 12);
+  const bob = Math.round(Math.sin(t * 3) * 2);
+  sprite(ctx, HOURGLASS, { g: "#c9a36a", s: COLORS.moss }, x + 8, y + 6 + bob, 4);
 }

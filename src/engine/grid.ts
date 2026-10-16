@@ -14,6 +14,11 @@ export function isMove(m: unknown): m is Move {
   return m === "U" || m === "D" || m === "L" || m === "R";
 }
 
+/** A step, or "E" ("Keep going" after running out of moves). */
+export function isRaidInput(m: unknown): m is Move | "E" {
+  return isMove(m) || m === "E";
+}
+
 export function inBounds(size: number, p: Point): boolean {
   return p.x >= 0 && p.y >= 0 && p.x < size && p.y < size;
 }

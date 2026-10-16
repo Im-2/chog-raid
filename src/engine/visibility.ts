@@ -41,9 +41,10 @@ export function litCells(room: Room, at: Point, radius: number = room.tier?.ligh
   return out;
 }
 
-/** Every tile seen at some point along `path` (the raider's explored map). */
+/** Every tile seen at some point along `path` (the raider's explored map). Rooms without fog: all of them. */
 export function exploredCells(room: Room, path: Point[], radius?: number): boolean[] {
-  const seen: boolean[] = new Array(room.size * room.size).fill(false);
+  const seen: boolean[] = new Array(room.size * room.size).fill(room.tier?.fog === false);
+  if (room.tier?.fog === false) return seen;
   const done = new Set<number>();
   for (const p of path) {
     const k = p.y * room.size + p.x;

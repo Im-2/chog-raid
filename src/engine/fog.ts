@@ -9,7 +9,7 @@ import type { Point, Room, Tile, Trap } from "./types";
 /**
  * One char per tile, row-major:
  *   ? unseen   (space) void   # wall   . floor   c carved floor   ~ water   ^ embers
- *   W native wall   E native embers   M native moat
+ *   W native wall   E native embers   M native moat   p floor with a "+moves" pickup
  */
 export type FogView = {
   radius: number;
@@ -25,12 +25,12 @@ export type PublicRoom = Omit<Room, "tiles" | "colors" | "carved" | "native"> & 
   native: {
     boss: Room["native"]["boss"];
     /** How many of each native piece the room has (positions stay hidden). */
-    counts: { walls: number; hazards: number; moat: number; guards: number; doors: number };
+    counts: { walls: number; hazards: number; moat: number; guards: number; doors: number; pickups: number };
   };
 };
 
 const CODE: Record<Tile, string> = { void: " ", wall: "#", floor: ".", water: "~", hazard: "^" };
-const TILE: Record<string, Tile> = { " ": "void", "#": "wall", ".": "floor", c: "floor", "~": "water", "^": "hazard", W: "wall", E: "hazard", M: "water" };
+const TILE: Record<string, Tile> = { p: "floor", " ": "void", "#": "wall", ".": "floor", c: "floor", "~": "water", "^": "hazard", W: "wall", E: "hazard", M: "water" };
 
 export function publicRoom(room: Room): PublicRoom {
   const { tiles: _t, colors: _c, carved: _k, native, ...rest } = room;
@@ -44,6 +44,7 @@ export function publicRoom(room: Room): PublicRoom {
         moat: native.moat.length,
         guards: native.traps.filter((t) => t.type === "guard").length,
         doors: native.traps.filter((t) => t.type === "lockdoor").length,
+        pickups: native.pickups.length,
       },
     },
   };
@@ -57,6 +58,7 @@ export function fogView(room: Room, path: Point[], explored: boolean[] = explore
   const nWall = new Set(room.native?.walls ?? []);
   const nEmber = new Set(room.native?.hazards ?? []);
   const nMoat = new Set(room.native?.moat ?? []);
+  const pick = new Set(room.native?.pickups ?? []);
   let map = "";
   let colors = "";
   for (let i = 0; i < room.tiles.length; i++) {
@@ -64,7 +66,7 @@ export function fogView(room: Room, path: Point[], explored: boolean[] = explore
       map += "?";
       continue;
     }
-    map += nWall.has(i) ? "W" : nEmber.has(i) ? "E" : nMoat.has(i) ? "M" : room.carved[i] && room.tiles[i] === "floor" ? "c" : CODE[room.tiles[i]];
+    map += pick.has(i) ? "p" : nWall.has(i) ? "W" : nEmber.has(i) ? "E" : nMoat.has(i) ? "M" : room.carved[i] && room.tiles[i] === "floor" ? "c" : CODE[room.tiles[i]];
     colors += room.colors[i].slice(1);
   }
   const at = path[path.length - 1] ?? room.entrance;
@@ -84,7 +86,7 @@ export function fogRoom(pub: PublicRoom, fog: FogView): Room {
   const tiles: Tile[] = new Array(n);
   const colors: string[] = new Array(n);
   const carved: boolean[] = new Array(n).fill(false);
-  const native: Room["native"] = { traps: [], walls: [], hazards: [], moat: [], boss: pub.native.boss };
+  const native: Room["native"] = { traps: [], walls: [], hazards: [], moat: [], pickups: [], boss: pub.native.boss };
   let c = 0;
   for (let i = 0; i < n; i++) {
     const ch = fog.map[i] ?? "?";
@@ -100,6 +102,7 @@ export function fogRoom(pub: PublicRoom, fog: FogView): Room {
     if (ch === "W") native.walls.push(i);
     if (ch === "E") native.hazards.push(i);
     if (ch === "M") native.moat.push(i);
+    if (ch === "p") native.pickups.push(i);
   }
   const { native: _n, ...rest } = pub;
   return { ...rest, tiles, colors, carved, native };

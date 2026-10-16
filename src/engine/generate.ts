@@ -80,8 +80,8 @@ export function generateRoom(input: RoomInput): Room {
     entrance,
     exit,
     rules,
-    tier: { id: tierId, level: spec.level, name: spec.name, label: spec.label, lightRadius: spec.lightRadius + (boss?.lightRadiusDelta ?? 0) },
-    native: { traps: [], walls: [], hazards: [], moat: [], boss: null },
+    tier: { id: tierId, level: spec.level, name: spec.name, label: spec.label, fog: spec.fog, lightRadius: spec.lightRadius + (boss?.lightRadiusDelta ?? 0) },
+    native: { traps: [], walls: [], hazards: [], moat: [], pickups: [], boss: null },
     difficulty: { score: 0, rating: 1 },
   };
   room.native = buildNative(room, spec, boss);

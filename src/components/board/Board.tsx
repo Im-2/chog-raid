@@ -3,6 +3,7 @@
 import { chogName } from "@/lib/names";
 import { useEffect, useRef } from "react";
 import { guardAt, type Move, type Point, type RaidEvent, type RaidOutcome, type Room, type Trap } from "@/engine";
+import { FOG_LOOK } from "@/config/tiers";
 import { playSfx, type Sfx } from "@/lib/sound";
 import { markFrame } from "../game/latency";
 import {
@@ -22,6 +23,7 @@ import {
   drawTrap,
   drawTelegraph,
   drawDoorUnlock,
+  drawPickup,
   createTileLayer,
   paintTiles,
   renderFogMask,
@@ -53,6 +55,8 @@ export type BoardProps = {
   onTrapDrag?: (from: Point, to: Point) => void;
   onSwipe?: (m: Move) => void;
   label?: string;
+  /** Tile indices of "+moves" pickups already collected. */
+  pickedUp?: number[];
   /** Highlight the room's built-in "Native defense" layer. */
   nativeLayer?: boolean;
   /** Fog of war: only `seen` tiles are drawn; `lit` tiles are in torchlight, the rest dimmed. */
@@ -110,6 +114,7 @@ export function Board(props: BoardProps) {
     cam: { x: 0, y: 0, z: 1, ready: false },
     keysPrev: new Set<number>(),
     unlocks: [] as { at: Point; start: number }[],
+    lastOutcome: undefined as RaidOutcome | undefined,
     slow: { since: 0, frames: 0, fired: false, last: 0 },
   });
 
@@ -151,6 +156,16 @@ export function Board(props: BoardProps) {
           a.floaters.push({ x: e.at.x * T + T / 2, y: e.at.y * T, text: `-${e.amount} HP`, color: COLORS.blood, born: now });
           burst(e.at, COLORS.blood, 10, 120);
           sfx("hurt");
+          break;
+        case "moves":
+          burst(e.at, COLORS.moss, 18, 160);
+          a.floaters.push({ x: e.at.x * T + T / 2, y: e.at.y * T, text: `+${e.amount} MOVES`, color: COLORS.moss, born: now });
+          sfx("key");
+          break;
+        case "extend":
+          a.stalledAt = 0;
+          burst(e.at, COLORS.torch, 24, 180);
+          a.floaters.push({ x: e.at.x * T + T / 2, y: e.at.y * T, text: `+${e.amount} MOVES`, color: COLORS.torch, born: now });
           break;
         case "key":
           burst(e.at, COLORS.gold, 28, 200);
@@ -255,7 +270,7 @@ export function Board(props: BoardProps) {
         L.seen = p.fog?.seen;
       }
       if (p.fog && (fogRef.current?.seen !== p.fog.seen || fogRef.current.lit !== p.fog.lit)) {
-        fogRef.current = { seen: p.fog.seen, lit: p.fog.lit, canvas: renderFogMask(room.size, p.fog.seen, p.fog.lit) };
+        fogRef.current = { seen: p.fog.seen, lit: p.fog.lit, canvas: renderFogMask(room.size, p.fog.seen, p.fog.lit, FOG_LOOK.explored) };
       }
 
       // The server corrected a predicted path (e.g. a hidden trap): rewind to where they differ.
@@ -327,6 +342,18 @@ export function Board(props: BoardProps) {
         for (const e of events.slice(a.eventsSeen)) fire(e, now);
         a.eventsSeen = events.length;
       }
+
+      // "Keep going": the raid was out of moves and is playing again.
+      if (a.lastOutcome === "out_of_moves" && p.outcome === "incomplete") {
+        a.stalledAt = 0;
+        const at = path[path.length - 1];
+        if (at) {
+          a.floaters.push({ x: at.x * T + T / 2, y: at.y * T, text: "KEEP GOING!", color: COLORS.torch, born: now });
+          burst(at, COLORS.torch, 24, 180);
+        }
+        a.eventsSeen = events.length;
+      }
+      a.lastOutcome = p.outcome;
 
       // Doors whose key was just picked up swing open.
       const held = p.keysHeld ?? [];
@@ -415,6 +442,11 @@ export function Board(props: BoardProps) {
         for (const q of p.ghostPath) ctx.fillRect(q.x * T + T / 2 - 4, q.y * T + T / 2 - 4, 8, 8);
       }
 
+      // "+moves" pickups not collected yet (only on tiles the raider has seen).
+      for (const i of room.native?.pickups ?? []) {
+        if (p.pickedUp?.includes(i) || (p.fog && !p.fog.seen[i])) continue;
+        drawPickup(ctx, { x: i % room.size, y: Math.floor(i / room.size) }, p.reduced ? 0 : t);
+      }
       p.traps.forEach((trap, i) => drawTrap(ctx, trap, t, { keyTaken: p.keysHeld?.includes(i) }));
       if (p.nativeLayer) drawNativeLayer(ctx, room, L.native, t);
       for (const u of a.unlocks) drawDoorUnlock(ctx, u.at, Math.min(1, (now - u.start) / UNLOCK_MS));
@@ -464,7 +496,8 @@ export function Board(props: BoardProps) {
         if (fogRef.current && p.fog) ctx.drawImage(fogRef.current.canvas, 0, 0, W, W);
         const flicker = p.reduced ? 1 : 1 + 0.03 * Math.sin(t * 13) + 0.02 * Math.sin(t * 7.3);
         const M = W * flicker;
-        ctx.drawImage(lightMask(room.tier?.lightRadius ?? 5, room.size), cx - M, cy - M, M * 2, M * 2);
+        // Only rooms with fog get the dark torch falloff; elsewhere the room is fully lit.
+        if (p.fog) ctx.drawImage(lightMask(room.tier?.lightRadius ?? 5, room.size, FOG_LOOK.edge), cx - M, cy - M, M * 2, M * 2);
         ctx.save();
         ctx.globalCompositeOperation = "lighter";
         ctx.globalAlpha = dead ? 0.6 : 1;

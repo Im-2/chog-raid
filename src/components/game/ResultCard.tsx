@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import type { Point, RaidResult } from "@/engine";
 import { chogName } from "@/lib/names";
 import { refreshPlayer, Streak } from "../progress/bits";
+import { EXTRA_MOVES } from "@/config/tiers";
 import { causeOfEnd } from "./describe";
 import styles from "./game.module.css";
 
@@ -30,6 +31,7 @@ export function ResultCard({
   onAgain,
   practice,
   raidId,
+  onKeepGoing,
 }: {
   result: RaidResult;
   movesUsed: number;
@@ -39,6 +41,8 @@ export function ResultCard({
   practice?: boolean;
   /** Server raid id: when set, points, bests and the next room are fetched for it. */
   raidId?: string | null;
+  /** Out of moves with "Keep going" still available. */
+  onKeepGoing?: () => void;
 }) {
   const won = result.outcome === "breach";
   const [reward, setReward] = useState<Reward | null>(null);
@@ -140,13 +144,25 @@ export function ResultCard({
           </div>
         )}
 
+        {onKeepGoing && (
+          <div className={styles.keepGoing}>
+            <button className="btn primary" onClick={onKeepGoing} autoFocus>
+              Keep going: +{EXTRA_MOVES.extend} moves
+            </button>
+            <p className="small muted">
+              Once per raid. A clear after this pays {EXTRA_MOVES.assistedPointsMultiplier * 100}% points and doesn&apos;t count for
+              fastest clears or the daily board.
+            </p>
+          </div>
+        )}
+
         <div className={styles.resultActions}>
           {won && next ? (
             <Link className="btn primary" href={`/room/${next.tokenId}`} autoFocus>
               Next room
             </Link>
           ) : (
-            <button className="btn primary" onClick={onAgain} autoFocus>
+            <button className={onKeepGoing ? "btn" : "btn primary"} onClick={onAgain} autoFocus={!onKeepGoing}>
               {won ? "Beat your time" : "Try again"}
             </button>
           )}

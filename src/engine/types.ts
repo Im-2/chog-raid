@@ -34,6 +34,8 @@ export type NativeDefenses = {
   walls: number[];
   hazards: number[];
   moat: number[];
+  /** Tile indices of "+moves" pickups (on floor, a short detour off the route). */
+  pickups: number[];
   boss: { title: string; name: string; blurb: string } | null;
 };
 
@@ -59,7 +61,7 @@ export type Room = {
   entrance: Point;
   exit: Point;
   rules: RoomRules;
-  tier: { id: TierId; level: number; name: string; label: string; lightRadius: number };
+  tier: { id: TierId; level: number; name: string; label: string; fog: boolean; lightRadius: number };
   native: NativeDefenses;
   /** 0-100 score from the room's real layout and defenses, and its 1-5 star rating. */
   difficulty: { score: number; rating: number };
@@ -67,11 +69,14 @@ export type Room = {
 
 export type Move = "U" | "D" | "L" | "R";
 
+/** What a raid's move list holds: a step, or "E" = "Keep going" (extra moves after running out). */
+export type RaidInput = Move | "E";
+
 export type RaidOutcome = "breach" | "defeated" | "out_of_moves" | "incomplete";
 
 export type RaidEvent = {
   step: number;
-  kind: "bump" | "damage" | "teleport" | "key" | "door" | "breach" | "defeated" | "out_of_moves";
+  kind: "bump" | "damage" | "teleport" | "key" | "door" | "breach" | "defeated" | "out_of_moves" | "moves" | "extend";
   at: Point;
   amount?: number;
   source?: "hazard" | "spike" | "guard";
@@ -91,4 +96,8 @@ export type RaidResult = {
   guards: Point[];
   events: RaidEvent[];
   endAt: Point;
+  /** Tile indices of move pickups collected. */
+  pickedUp: number[];
+  /** How many times "Keep going" was used. */
+  extended: number;
 };

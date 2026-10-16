@@ -1,7 +1,7 @@
 // "Rebuild nudge": after a breach, show the owner where raiders got through and suggest one trap change.
 // Pure: built on the shared engine, so the heatmap is exactly the paths raiders walked.
 
-import { fitTraps, guardRoute, roomForRaid, simulateRaid, validateTraps, type Move, type Point, type Room, type Trap, type TrapType } from "@/engine";
+import { fitTraps, guardRoute, roomForRaid, simulateRaid, validateTraps, type RaidInput, type Move, type Point, type Room, type Trap, type TrapType } from "@/engine";
 import type { RaidRecord } from "./store/types";
 
 export type Suggestion = {
@@ -37,7 +37,7 @@ export function rebuildNudge(room: Room, traps: Trap[], raids: RaidRecord[], sav
   const deaths: Point[] = [];
   let breaches = 0;
   for (const r of recent) {
-    const res = simulateRaid(roomForRaid(room, r.engine), r.traps, r.moves.split("") as Move[]);
+    const res = simulateRaid(roomForRaid(room, r.engine), r.traps, r.moves.split("") as RaidInput[]);
     if (r.status === "breach") {
       breaches++;
       const seen = new Set<number>();

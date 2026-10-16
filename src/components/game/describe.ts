@@ -18,6 +18,10 @@ export function describeEvent(e: RaidEvent): string {
       return "You died";
     case "out_of_moves":
       return "Out of moves";
+    case "moves":
+      return `Found +${e.amount} moves`;
+    case "extend":
+      return `Kept going: +${e.amount} moves`;
   }
 }
 

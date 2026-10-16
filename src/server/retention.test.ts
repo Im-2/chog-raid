@@ -114,6 +114,18 @@ describe("warden points", () => {
     }
   });
 
+  it("a clear that used Keep going pays half and gets no speed bonus", () => {
+    const fair = raid({ at: "2026-10-06T01:00:00Z", status: "breach", raider: "guest:f", moves: "R".repeat(20), engine: NATIVE_ENGINE });
+    const helped = raid({ at: "2026-10-06T01:00:00Z", status: "breach", raider: "guest:h", tokenId: 51, moves: "R".repeat(19) + "ER", engine: NATIVE_ENGINE });
+    const aw = scoreRaids([fair, helped], SUPPLY);
+    const f = aw.find((x) => x.raidId === fair.id)!;
+    const h = aw.find((x) => x.raidId === helped.id)!;
+    expect(f.parts.some((p) => p.label === "Perfect route")).toBe(true);
+    expect(h.parts.some((p) => /route|Fast/.test(p.label))).toBe(false);
+    expect(h.parts.some((p) => p.label.startsWith("Used extra moves"))).toBe(true);
+    expect(h.points).toBeLessThan(f.points);
+  });
+
   it("ranks season standings and awards badges only for finished seasons", () => {
     const last = seasonAt(Date.parse("2026-10-06T00:00:00Z")).index;
     const raids = [

@@ -7,7 +7,7 @@ import { findSafePath, sampleTraps } from "./traps";
 import { exploredCells, litCells } from "./visibility";
 import type { Room, TierId } from "./types";
 
-const room = (id: number, tier: TierId = "rare"): Room =>
+const room = (id: number, tier: TierId = "legendary"): Room =>
   generateRoom({ tokenId: id, pixels: mockPixels(id), traits: [{ trait_type: "Tier", value: tier }] });
 
 describe("fog of war", () => {

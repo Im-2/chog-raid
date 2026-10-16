@@ -59,7 +59,9 @@ export function computeStats(raids: RaidRecord[]): Stats {
       room.defendedRaids++;
       if (breach) room.defendedBreaches++;
     }
-    if (breach && (!room.fastestClear || moves < room.fastestClear.moves)) {
+    // Clears that used "Keep going" never set a speed record.
+    const fair = breach && !r.moves.includes("E");
+    if (fair && (!room.fastestClear || moves < room.fastestClear.moves)) {
       room.fastestClear = { moves, raider: r.raider, at: r.createdAt };
     }
     room.lastRaidAt = r.createdAt;
@@ -70,7 +72,7 @@ export function computeStats(raids: RaidRecord[]): Stats {
     if (breach) {
       rd.clears++;
       rd.rooms.add(r.tokenId);
-      rd.fastest = rd.fastest === null ? moves : Math.min(rd.fastest, moves);
+      if (fair) rd.fastest = rd.fastest === null ? moves : Math.min(rd.fastest, moves);
     }
     raiders.set(r.raider, rd);
 

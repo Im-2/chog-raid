@@ -9,7 +9,8 @@ import {
   fogTraps,
   fogView,
   guardRoute,
-  isMove,
+  isRaidInput,
+  hasNative,
   withNative,
   fitTraps,
   roomForRaid,
@@ -18,12 +19,14 @@ import {
   simulateRaid,
   type FogView,
   type Move,
+  type RaidInput,
   type Point,
   type RaidEvent,
   type RaidOutcome,
   type Room,
   type Trap,
 } from "@/engine";
+import { EXTRA_MOVES } from "@/config/tiers";
 import type { RaidRecord, RaidStatus, Store } from "./store/types";
 
 export type RaidDeps = {
@@ -77,11 +80,11 @@ export function visibleTraps(room: Room, traps: Trap[], path: Point[]): Trap[] {
 
 export function viewOf(current: Room, r: RaidRecord): RaidView {
   const room = roomForRaid(current, r.engine);
-  const result = simulateRaid(room, r.traps, r.moves.split("") as Move[]);
+  const result = simulateRaid(room, r.traps, r.moves.split("") as RaidInput[]);
   const seen = exploredCells(room, result.path);
   const fog = fogView(room, result.path, seen);
   const visible = fogTraps(room, r.traps, result.path, seen);
-  const nativeCount = r.engine === NATIVE_ENGINE ? room.native.traps.length : 0;
+  const nativeCount = hasNative(r.engine) ? room.native.traps.length : 0;
   const guardIndex = r.traps.flatMap((t, i) => (t.type === "guard" ? [i] : []));
   return {
     raidId: r.id,
@@ -168,8 +171,8 @@ export async function applyMoves(
   moves: unknown,
   seq: unknown,
 ): Promise<Result<RaidView>> {
-  if (!Array.isArray(moves) || moves.length === 0 || moves.length > 120 || !moves.every(isMove)) {
-    return fail(400, "Moves must be a non-empty list of U, D, L or R.");
+  if (!Array.isArray(moves) || moves.length === 0 || moves.length > 120 || !moves.every(isRaidInput)) {
+    return fail(400, "Moves must be a non-empty list of U, D, L, R (or E to keep going).");
   }
   if (!Number.isInteger(seq) || (seq as number) < 0) return fail(400, "seq must be a non-negative integer.");
   const rec = await deps.store.getRaid(raidId);
@@ -182,15 +185,26 @@ export async function applyMoves(
   const have = rec.moves.length;
   if (n > have) return fail(409, "Out of sync.", viewOf(room, rec));
   const overlap = Math.min(have - n, moves.length);
-  if (rec.moves.slice(n, n + overlap) !== (moves as Move[]).slice(0, overlap).join("")) {
+  if (rec.moves.slice(n, n + overlap) !== (moves as RaidInput[]).slice(0, overlap).join("")) {
     return fail(409, "Out of sync.", viewOf(room, rec));
   }
-  const fresh = (moves as Move[]).slice(overlap);
+  const fresh = (moves as RaidInput[]).slice(overlap);
   if (fresh.length === 0) return { ok: true, value: viewOf(room, rec) };
-  if (rec.status !== "active") return fail(409, "This raid is over.", viewOf(room, rec));
+  // "Keep going": a raid that just ran out of moves reopens once with extra moves, if the very
+  // next input is "E". Anything else after the end is rejected.
+  const raidRoom = roomForRaid(room, rec.engine);
+  const keepGoing =
+    rec.status === "out_of_moves" &&
+    fresh[0] === "E" &&
+    rec.engine === NATIVE_ENGINE &&
+    simulateRaid(raidRoom, rec.traps, rec.moves.split("") as RaidInput[]).extended < EXTRA_MOVES.extendLimit;
+  if (rec.status !== "active" && !keepGoing) return fail(409, "This raid is over.", viewOf(room, rec));
+  if (rec.status === "active" && fresh.includes("E") && !simulateRaid(raidRoom, rec.traps, [...(rec.moves.split("") as RaidInput[]), ...fresh]).extended) {
+    return fail(400, "You can only keep going once you run out of moves.", viewOf(room, rec));
+  }
 
-  const all = (rec.moves + fresh.join("")).split("") as Move[];
-  const result = simulateRaid(roomForRaid(room, rec.engine), rec.traps, all);
+  const all = (rec.moves + fresh.join("")).split("") as RaidInput[];
+  const result = simulateRaid(raidRoom, rec.traps, all);
   const next: RaidRecord = {
     ...rec,
     moves: all.slice(0, result.stepsProcessed).join(""),
@@ -222,9 +236,11 @@ export type Replay = {
   practice: boolean;
   status: RaidStatus;
   traps: Trap[];
-  moves: Move[];
-  /** False for raids recorded before native defenses: replay them on legacyRoom(room). */
+  moves: RaidInput[];
+  /** False for raids recorded before native defenses. */
   native: boolean;
+  /** Engine version: replay on roomForRaid(room, engine). */
+  engine: number;
 };
 
 /**
@@ -241,7 +257,7 @@ export async function getReplay(deps: RaidDeps, raidId: string, requester: strin
   }
   return {
     ok: true,
-    value: { raidId: rec.id, tokenId: rec.tokenId, practice: rec.practice, status: rec.status, traps: rec.traps, moves: rec.moves.split("") as Move[], native: rec.engine === NATIVE_ENGINE },
+    value: { raidId: rec.id, tokenId: rec.tokenId, practice: rec.practice, status: rec.status, traps: rec.traps, moves: rec.moves.split("") as RaidInput[], native: hasNative(rec.engine), engine: rec.engine ?? 1 },
   };
 }
 

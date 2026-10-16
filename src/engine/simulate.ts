@@ -1,7 +1,8 @@
+import { EXTRA_MOVES } from "@/config/tiers";
 import { GAME } from "./config";
 import { inBounds, isMove, samePoint, step } from "./grid";
 import { guardAt, guardRoute } from "./traps";
-import type { Move, Point, RaidEvent, RaidOutcome, RaidResult, Room, Trap } from "./types";
+import type { Point, RaidEvent, RaidInput, RaidOutcome, RaidResult, Room, Trap } from "./types";
 
 /**
  * Replays a raid. This is the single source of truth: the client runs it to show
@@ -15,7 +16,12 @@ import type { Move, Point, RaidEvent, RaidOutcome, RaidResult, Room, Trap } from
  * 4. Effects of the tile you entered: hazard / spike damage, key pickup.
  * 5. Guard contact (same tile, or swapped places) deals damage.
  * 6. Teleporter sends you to the entrance.
- * 7. HP <= 0 is death; otherwise no moves left is exhaustion.
+ * 7. HP <= 0 is death; otherwise no moves left is exhaustion, unless the very next input is
+ *    "E" ("Keep going", at most EXTRA_MOVES.extendLimit times): that adds EXTRA_MOVES.extend moves
+ *    and the raid goes on. Anywhere else "E" does nothing.
+ *
+ * Entering a "+moves" pickup tile (room.native.pickups) adds EXTRA_MOVES.pickupValue moves, once.
+ * Guards move once per step, not per "E".
  *
  * Moves after the raid ends are ignored. If moves run out of input first, the
  * outcome is "incomplete".
@@ -23,7 +29,7 @@ import type { Move, Point, RaidEvent, RaidOutcome, RaidResult, Room, Trap } from
 export function simulateRaid(
   room: Room,
   traps: Trap[],
-  moves: readonly Move[],
+  moves: readonly RaidInput[],
   /** Patrol routes per guard (in trap order), for a client that can't see every tile a guard walks. */
   opts: { routes?: Point[][] } = {},
 ): RaidResult {
@@ -42,12 +48,18 @@ export function simulateRaid(
   let movesLeft: number = rules.maxMoves;
   let outcome: RaidOutcome | null = null;
   let turn = 0;
+  /** Steps taken (guards' clock); equals `turn` unless the list holds "E". */
+  let clock = 0;
+  let extended = 0;
+  const pickupAt = new Set(room.native?.pickups ?? []);
+  const picked = new Set<number>();
   const keys = new Set<number>();
   const path: Point[] = [pos];
   const events: RaidEvent[] = [];
 
   for (; turn < moves.length && outcome === null; turn++) {
     const m = moves[turn];
+    if (m === "E") continue; // only meaningful right after running out (below)
     if (!isMove(m)) throw new Error(`invalid move at ${turn}: ${String(m)}`);
     const s = turn + 1;
     const prev = pos;
@@ -70,6 +82,7 @@ export function simulateRaid(
     if (samePoint(pos, room.exit)) {
       outcome = "breach";
       events.push({ step: s, kind: "breach", at: pos });
+      clock++;
       break;
     }
 
@@ -83,6 +96,12 @@ export function simulateRaid(
       if (tile === "hazard") damage(GAME.hazardDamage, "hazard");
       if (there?.trap.type === "spike") damage(GAME.spikeDamage, "spike");
       if (there?.trap.type === "teleporter") teleport = true;
+      const here = pos.y * size + pos.x;
+      if (pickupAt.has(here) && !picked.has(here)) {
+        picked.add(here);
+        movesLeft += EXTRA_MOVES.pickupValue;
+        events.push({ step: s, kind: "moves", at: pos, amount: EXTRA_MOVES.pickupValue });
+      }
       const k = keyAt.get(pos.y * size + pos.x);
       if (k !== undefined && !keys.has(k)) {
         keys.add(k);
@@ -91,8 +110,8 @@ export function simulateRaid(
     }
 
     for (const route of guards) {
-      const before = guardAt(route, turn);
-      const now = guardAt(route, turn + 1);
+      const before = guardAt(route, clock);
+      const now = guardAt(route, clock + 1);
       if (samePoint(now, pos) || (samePoint(now, prev) && samePoint(before, pos))) {
         damage(GAME.guardDamage, "guard");
       }
@@ -108,9 +127,17 @@ export function simulateRaid(
       outcome = "defeated";
       events.push({ step: s, kind: "defeated", at: pos });
     } else if (movesLeft <= 0) {
-      outcome = "out_of_moves";
-      events.push({ step: s, kind: "out_of_moves", at: pos });
+      if (moves[turn + 1] === "E" && extended < EXTRA_MOVES.extendLimit) {
+        extended++;
+        movesLeft += EXTRA_MOVES.extend;
+        turn++; // consume the "E"
+        events.push({ step: turn + 1, kind: "extend", at: pos, amount: EXTRA_MOVES.extend });
+      } else {
+        outcome = "out_of_moves";
+        events.push({ step: s, kind: "out_of_moves", at: pos });
+      }
     }
+    clock++;
   }
 
   const processed = outcome === "breach" ? turn + 1 : turn;
@@ -121,8 +148,10 @@ export function simulateRaid(
     stepsProcessed: processed,
     path,
     keys: [...keys].sort((a, b) => a - b),
-    guards: guards.map((r) => guardAt(r, processed)),
+    guards: guards.map((r) => guardAt(r, clock)),
     events,
     endAt: pos,
+    pickedUp: [...picked],
+    extended,
   };
 }

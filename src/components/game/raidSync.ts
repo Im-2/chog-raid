@@ -12,7 +12,10 @@
 // (rebuilt from the server's fog view: unseen tiles are void), with the guard routes the server
 // sent. The raider only ever steps next to tiles they've already seen, so that is enough.
 
-import { fogRoom, simulateRaid, type Move, type PublicRoom, type RaidResult, type Room } from "@/engine";
+import { EXTRA_MOVES } from "@/config/tiers";
+import { fogRoom, simulateRaid, type PublicRoom, type RaidInput, type RaidResult, type Room } from "@/engine";
+
+type Move = RaidInput;
 import type { RaidView as ServerView } from "@/server/raids";
 
 export type Batch = { seq: number; moves: Move[] };
@@ -47,8 +50,15 @@ export function predict(pub: PublicRoom, s: SyncState): RaidResult {
   });
 }
 
-/** Add a move, unless the raid is (or is predicted to be) over. */
+/** True when the raider just ran out of moves and can still "Keep going" (EXTRA_MOVES). */
+export function canKeepGoing(room: PublicRoom, s: SyncState): boolean {
+  const r = predict(room, s);
+  return (s.view.status === "active" || s.view.status === "out_of_moves") && r.outcome === "out_of_moves" && r.extended < EXTRA_MOVES.extendLimit;
+}
+
+/** Add a move ("E" = keep going), unless the raid is (or is predicted to be) over. */
 export function enqueue(room: PublicRoom, s: SyncState, m: Move): SyncState {
+  if (m === "E") return canKeepGoing(room, s) ? { ...s, pending: [...s.pending, m] } : s;
   if (s.view.status !== "active") return s;
   if (predict(room, s).outcome !== "incomplete") return s;
   return { ...s, pending: [...s.pending, m] };
@@ -56,7 +66,8 @@ export function enqueue(room: PublicRoom, s: SyncState, m: Move): SyncState {
 
 /** The next batch to send: everything pending, starting where the server left off. */
 export function takeBatch(s: SyncState): { state: SyncState; batch: Batch } | null {
-  if (s.inflight || s.pending.length === 0 || s.view.status !== "active") return null;
+  if (s.inflight || s.pending.length === 0) return null;
+  if (s.view.status !== "active" && !(s.view.status === "out_of_moves" && s.pending[0] === "E")) return null;
   const batch: Batch = { seq: s.view.moves.length, moves: [...s.pending] };
   return { state: { ...s, inflight: batch }, batch };
 }
@@ -72,7 +83,10 @@ export function onServerView(s: SyncState, sent: Batch | null, v: ServerView): S
   // Our full move list as we know it: confirmed + pending.
   const ours = s.view.moves + s.pending.join("");
   let pending: Move[];
-  if (v.status !== "active") {
+  const rest = ours.startsWith(v.moves) ? ours.slice(v.moves.length) : "";
+  if (v.status === "out_of_moves" && rest.startsWith("E")) {
+    pending = rest.split("") as Move[]; // ran out, but the raider already chose to keep going
+  } else if (v.status !== "active") {
     pending = []; // raid over: anything unconfirmed is void
   } else if (ours.startsWith(v.moves)) {
     pending = ours.slice(v.moves.length).split("").filter(Boolean) as Move[];

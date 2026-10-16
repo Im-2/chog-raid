@@ -36,8 +36,8 @@ function makeRoom(rows: string[], overrides: Partial<Room["rules"]> = {}): Room 
       notes: [],
       ...overrides,
     },
-    tier: { id: "common", level: 1, name: "Common", label: "Base", lightRadius: 5.5 },
-    native: { traps: [], walls: [], hazards: [], moat: [], boss: null },
+    tier: { id: "common", level: 1, name: "Common", label: "Base", fog: false, lightRadius: 6 },
+    native: { traps: [], walls: [], hazards: [], moat: [], pickups: [], boss: null },
     difficulty: { score: 0, rating: 1 },
   };
 }

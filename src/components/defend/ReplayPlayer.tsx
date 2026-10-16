@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { litCells, raiderSight, simulateRaid, type Move, type Room, type Trap } from "@/engine";
+import { litCells, raiderSight, simulateRaid, type RaidInput, type Room, type Trap } from "@/engine";
 import { Board } from "../board/Board";
 import { causeOfEnd } from "../game/describe";
 import styles from "./defend.module.css";
@@ -11,7 +11,7 @@ import styles from "./defend.module.css";
  * replays the fog of war exactly as the raider saw it at each step (it is a pure function of the
  * room and the path, the same one the server used).
  */
-export function ReplayPlayer({ room, traps, moves, sound }: { room: Room; traps: Trap[]; moves: Move[]; sound?: boolean }) {
+export function ReplayPlayer({ room, traps, moves, sound }: { room: Room; traps: Trap[]; moves: RaidInput[]; sound?: boolean }) {
   const [step, setStep] = useState(0);
   const [playing, setPlaying] = useState(true);
   const [raiderView, setRaiderView] = useState(true);
@@ -46,7 +46,8 @@ export function ReplayPlayer({ room, traps, moves, sound }: { room: Room; traps:
           outcome={result.outcome}
           instant={instant}
           sound={sound}
-          fog={raiderView ? sight : undefined}
+          fog={raiderView && room.tier.fog ? sight : undefined}
+          pickedUp={result.pickedUp}
           label="Raid replay"
         />
       </div>
@@ -81,9 +82,9 @@ export function ReplayPlayer({ room, traps, moves, sound }: { room: Room; traps:
         <span className="small muted">
           {step}/{end}
         </span>
-        <label className="small" style={{ display: "flex", gap: 4, alignItems: "center" }}>
+        {room.tier.fog && <label className="small" style={{ display: "flex", gap: 4, alignItems: "center" }}>
           <input type="checkbox" checked={raiderView} onChange={(e) => setRaiderView(e.target.checked)} /> Raider&apos;s view
-        </label>
+        </label>}
       </div>
       <p className="small">{step >= end ? causeOfEnd(full) : " "}</p>
     </div>

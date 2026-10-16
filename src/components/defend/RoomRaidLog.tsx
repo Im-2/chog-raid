@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { Move, Trap } from "@/engine";
+import type { RaidInput, Trap } from "@/engine";
 import type { RaidSummary } from "@/server/raids";
 import styles from "./defend.module.css";
 
@@ -16,7 +16,7 @@ const ago = (iso: string) => {
 };
 
 /** Raids recorded on the server for this room, with replays where the viewer is allowed. */
-export function RoomRaidLog({ tokenId, onReplay }: { tokenId: number; onReplay: (r: { traps: Trap[]; moves: Move[]; native: boolean }) => void }) {
+export function RoomRaidLog({ tokenId, onReplay }: { tokenId: number; onReplay: (r: { traps: Trap[]; moves: RaidInput[]; native: boolean; engine: number }) => void }) {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [error, setError] = useState(false);
   const [replayError, setReplayError] = useState<string | null>(null);
@@ -41,7 +41,7 @@ export function RoomRaidLog({ tokenId, onReplay }: { tokenId: number; onReplay: 
     const res = await fetch(`/api/raids/${id}/replay`);
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return setReplayError(data.error ?? "Replay unavailable.");
-    onReplay({ traps: data.traps, moves: data.moves, native: !!data.native });
+    onReplay({ traps: data.traps, moves: data.moves, native: !!data.native, engine: data.engine ?? (data.native ? 2 : 1) });
   };
 
   if (error)

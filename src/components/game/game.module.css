@@ -752,3 +752,16 @@
     font-size: 10px;
   }
 }
+
+.keepGoing {
+  margin: 0 0 12px;
+  padding: 10px;
+  border: 2px dashed var(--torch);
+  text-align: left;
+}
+.keepGoing .btn {
+  width: 100%;
+}
+.keepGoing p {
+  margin: 6px 0 0;
+}

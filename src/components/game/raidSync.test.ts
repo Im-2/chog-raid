@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findSafePath, generateRoom, publicRoom, type Move, type Trap } from "@/engine";
+import { findSafePath, generateRoom, publicRoom, type Move, type RaidInput, type Trap } from "@/engine";
 import { mockPixels, mockTraits } from "@/nft/mockArt";
 import { applyMoves, startRaid, type RaidDeps, type RaidView } from "@/server/raids";
 import { createMemoryStore } from "@/server/store/memory";
@@ -16,7 +16,7 @@ function server(defense: Trap[] = []) {
   return deps;
 }
 const view = (r: { ok: boolean; value?: RaidView; view?: RaidView }) => (r.ok ? r.value! : r.view!);
-const send = (deps: RaidDeps, raidId: string, b: { seq: number; moves: Move[] }) => applyMoves(deps, raidId, "alice", b.moves, b.seq);
+const send = (deps: RaidDeps, raidId: string, b: { seq: number; moves: RaidInput[] }) => applyMoves(deps, raidId, "alice", b.moves, b.seq);
 
 async function begin(defense?: Trap[]) {
   const deps = server(defense);

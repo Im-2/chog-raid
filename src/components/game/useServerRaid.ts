@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fogRoom, litCells, seenMask, type Move, type PublicRoom, type RaidResult, type Trap } from "@/engine";
 import type { RaidView as ServerView } from "@/server/raids";
 import { markInput } from "./latency";
-import { enqueue, initialSync, knownRoom, onNetworkError, onServerView, predict, takeBatch, type Batch, type SyncState } from "./raidSync";
+import { canKeepGoing, enqueue, initialSync, knownRoom, onNetworkError, onServerView, predict, takeBatch, type Batch, type SyncState } from "./raidSync";
 import type { RaidView, Sight } from "./useLocalRaid";
 
 export type ServerRaid = RaidView & {
@@ -153,7 +153,7 @@ export function useServerRaid(room: PublicRoom): ServerRaid {
     () =>
       sync
         ? predict(room, sync)
-        : { outcome: "incomplete", hp: room.rules.raiderHp, movesLeft: room.rules.maxMoves, stepsProcessed: 0, path: [room.entrance], keys: [], guards: [], events: [], endAt: room.entrance },
+        : { outcome: "incomplete", hp: room.rules.raiderHp, movesLeft: room.rules.maxMoves, stepsProcessed: 0, path: [room.entrance], keys: [], guards: [], events: [], endAt: room.entrance, pickedUp: [], extended: 0 },
     [sync, room],
   );
 
@@ -178,7 +178,7 @@ export function useServerRaid(room: PublicRoom): ServerRaid {
 
   return {
     result,
-    moves: [] as Move[],
+    moves: [],
     movesUsed: result.stepsProcessed,
     visibleTraps,
     keysHeld: result.keys,
@@ -193,5 +193,14 @@ export function useServerRaid(room: PublicRoom): ServerRaid {
     busy: !!sync && sync.pending.length > 0,
     retry,
     sight,
+    canKeepGoing: !!sync && canKeepGoing(room, sync),
+    keepGoing: () => {
+      const s = syncRef.current;
+      if (!s) return;
+      const next = enqueue(room, s, "E");
+      if (next === s) return;
+      commit(next);
+      void pump();
+    },
   };
 }

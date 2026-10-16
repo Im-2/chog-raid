@@ -1,5 +1,6 @@
 "use client";
 
+import { EXTRA_MOVES } from "@/config/tiers";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -9,7 +10,9 @@ import {
   TRAP_INFO,
   validateTraps,
   withNative,
-  legacyRoom,
+  roomForRaid,
+  NATIVE_ENGINE,
+  type RaidInput,
   type Move,
   type Point,
   type RaidOutcome,
@@ -92,7 +95,7 @@ function SaveBox({
 }
 
 /** `native` is false/missing for raids from before native defenses; those replay on legacyRoom. */
-type LogEntry = { id: string; at: number; moves: Move[]; traps: Trap[]; outcome: RaidOutcome; hp: number; native?: boolean };
+type LogEntry = { id: string; at: number; moves: RaidInput[]; traps: Trap[]; outcome: RaidOutcome; hp: number; native?: boolean; engine?: number };
 type Tool = TrapType | "erase";
 
 const ALL: TrapType[] = ["spike", "teleporter", "guard", "lockdoor"];
@@ -118,7 +121,7 @@ function TestRaid({ room, traps, sound, onDone, onExit }: { room: Room; traps: T
   const { move, reset, result, over, moves } = raid;
 
   useEffect(() => {
-    if (over) onDone({ id: `${Date.now()}`, at: Date.now(), moves, traps, outcome: result.outcome, hp: result.hp, native: true });
+    if (over) onDone({ id: `${Date.now()}`, at: Date.now(), moves, traps, outcome: result.outcome, hp: result.hp, native: true, engine: NATIVE_ENGINE });
     // only when the raid ends
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [over]);
@@ -148,7 +151,8 @@ function TestRaid({ room, traps, sound, onDone, onExit }: { room: Room; traps: T
           events={result.events}
           outcome={result.outcome}
           sound={sound}
-          fog={{ seen: raid.sight!.seen, lit: raid.sight!.lit }}
+          fog={room.tier.fog ? { seen: raid.sight!.seen, lit: raid.sight!.lit } : undefined}
+          pickedUp={result.pickedUp}
           threatRoutes={raid.sight!.guardRoutes}
           turn={result.stepsProcessed}
           nativeGuards={raid.visibleTraps.slice(0, raid.sight!.nativeTraps).filter((t) => t.type === "guard").length}
@@ -161,6 +165,11 @@ function TestRaid({ room, traps, sound, onDone, onExit }: { room: Room; traps: T
       <div className={styles.testControls}>
         <DPad onMove={move} disabled={over} />
         <div className={styles.stack}>
+          {raid.canKeepGoing && (
+            <button className="btn primary" onClick={raid.keepGoing}>
+              Keep going +{EXTRA_MOVES.extend}
+            </button>
+          )}
           <button className="btn" onClick={reset}>
             Restart
           </button>
@@ -203,7 +212,7 @@ export function DefendEditor({ room, chog, owner }: { room: Room; chog: ChogSumm
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
         if (!j) return;
-        setReplay({ id: "server", at: 0, outcome: "incomplete", hp: 0, traps: j.traps, moves: j.moves, native: j.native });
+        setReplay({ id: "server", at: 0, outcome: "incomplete", hp: 0, traps: j.traps, moves: j.moves, native: j.native, engine: j.engine });
         setPanel("replay");
       })
       .catch(() => {});
@@ -563,7 +572,7 @@ export function DefendEditor({ room, chog, owner }: { room: Room; chog: ChogSumm
         <RoomInfo chog={chog} room={room} />
       </Sheet>
       <Sheet open={panel === "replay" && !!replay} onClose={() => setPanel("none")} title="Raid replay">
-        {replay && <ReplayPlayer room={replay.native ? room : legacyRoom(room)} traps={replay.traps} moves={replay.moves} sound={sound} />}
+        {replay && <ReplayPlayer room={roomForRaid(room, replay.engine ?? (replay.native ? 2 : 1))} traps={replay.traps} moves={replay.moves} sound={sound} />}
       </Sheet>
     </div>
   );

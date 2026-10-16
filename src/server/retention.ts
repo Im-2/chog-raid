@@ -3,8 +3,8 @@
 // All tunable numbers live in src/config/retention.ts.
 
 import { RETENTION } from "@/config/retention";
-import { tierAtLevel } from "@/config/tiers";
-import { hashString, NATIVE_ENGINE } from "@/engine";
+import { EXTRA_MOVES, tierAtLevel } from "@/config/tiers";
+import { hashString, hasNative } from "@/engine";
 import type { RaidRecord } from "./store/types";
 
 const DAY = 86_400_000;
@@ -40,6 +40,12 @@ const lc = (s: string) => s.toLowerCase();
  * Score every finished raid, oldest first. Raider awards come from clears; Warden awards from
  * raids that failed against a saved defense (never a holder raiding their own room).
  */
+/** A raid that used "Keep going" (an "E" in its move list). */
+export const assistedRaid = (r: Pick<RaidRecord, "moves">) => r.moves.includes("E");
+
+/** Moves actually walked (the "E" markers aren't steps). */
+export const stepsOf = (r: Pick<RaidRecord, "moves">) => r.moves.replace(/E/g, "").length;
+
 export function scoreRaids(raids: RaidRecord[], supply: number): Award[] {
   const list = raids.filter(finished).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   const awards: Award[] = [];
@@ -51,7 +57,7 @@ export function scoreRaids(raids: RaidRecord[], supply: number): Award[] {
   for (const r of list) {
     const season = seasonAt(Date.parse(r.createdAt)).index;
     const breach = r.status === "breach";
-    const moves = r.moves.length;
+    const moves = stepsOf(r);
 
     if (breach) {
       const parts: AwardPart[] = [];
@@ -63,7 +69,9 @@ export function scoreRaids(raids: RaidRecord[], supply: number): Award[] {
         parts.push({ label: "Repeat clear", points: R.raider.repeatClear });
       }
       if (!r.practice && !everCleared.has(r.tokenId)) parts.push({ label: "First ever to clear this room", points: R.raider.firstClearEver });
-      if (r.par) {
+      // "Keep going" clears: no speed bonus (see EXTRA_MOVES).
+      const assisted = assistedRaid(r);
+      if (r.par && !assisted) {
         const worst = r.par * R.raider.fastClearSlack;
         const k = Math.max(0, Math.min(1, (worst - moves) / (worst - r.par)));
         const bonus = Math.round(R.raider.fastClearMax * k);
@@ -75,12 +83,13 @@ export function scoreRaids(raids: RaidRecord[], supply: number): Award[] {
         parts.push({ label: "Daily raid", points: R.raider.dailyClear });
       }
       // Harder tiers pay more (raids from before native defenses keep their old points).
-      const tier = r.engine === NATIVE_ENGINE ? tierAtLevel(r.difficulty) : null;
+      const tier = hasNative(r.engine) ? tierAtLevel(r.difficulty) : null;
       const tierMult = tier?.pointsMultiplier ?? 1;
-      const mult = (r.practice ? R.raider.practiceMultiplier : 1) * tierMult;
+      const mult = (r.practice ? R.raider.practiceMultiplier : 1) * tierMult * (assisted ? EXTRA_MOVES.assistedPointsMultiplier : 1);
       const scaled = parts.map((p) => ({ ...p, points: Math.round(p.points * mult) }));
       if (tier && tierMult !== 1) scaled.push({ label: `${tier.name} room (x${tierMult})`, points: 0 });
       if (r.practice) scaled.push({ label: `Practice room (x${R.raider.practiceMultiplier})`, points: 0 });
+      if (assisted) scaled.push({ label: `Used extra moves (x${EXTRA_MOVES.assistedPointsMultiplier})`, points: 0 });
       awards.push({ raidId: r.id, who: r.raider, role: "raider", season, points: scaled.reduce((s, p) => s + p.points, 0), parts: scaled });
       if (!r.practice) everCleared.add(r.tokenId);
     }
@@ -92,7 +101,7 @@ export function scoreRaids(raids: RaidRecord[], supply: number): Award[] {
         const streak = holdsSinceBreach.get(r.tokenId) ?? 0;
         const diff = r.difficulty ?? 1;
         const parts: AwardPart[] = [{ label: "Raider failed", points: R.warden.hold }];
-        if (r.engine === NATIVE_ENGINE) {
+        if (hasNative(r.engine)) {
           // Holding a harder room is worth more: the hold scales with the tier's multiplier.
           const tier = tierAtLevel(diff);
           const bonus = Math.round(R.warden.hold * (tier.pointsMultiplier - 1));
@@ -179,7 +188,7 @@ export type DailyEntry = { raider: string; moves: number; at: string; raidId: st
 export function dailyBoard(raids: RaidRecord[], day: string, tokenId: number): DailyEntry[] {
   const best = new Map<string, DailyEntry>();
   for (const r of raids) {
-    if (r.status !== "breach" || r.tokenId !== tokenId || dayKey(r.createdAt) !== day) continue;
+    if (r.status !== "breach" || r.tokenId !== tokenId || dayKey(r.createdAt) !== day || assistedRaid(r)) continue;
     const k = lc(r.raider);
     const cur = best.get(k);
     const e = { raider: r.raider, moves: r.moves.length, at: r.createdAt, raidId: r.id };

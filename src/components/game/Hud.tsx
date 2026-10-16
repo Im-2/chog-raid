@@ -1,3 +1,4 @@
+import { EXTRA_MOVES } from "@/config/tiers";
 import type { Difficulty } from "@/lib/difficulty";
 import { DifficultyBadge } from "../ui/DifficultyBadge";
 import styles from "./game.module.css";
@@ -70,7 +71,7 @@ export function Hud({ hp, maxHp, movesLeft, maxMoves, keys, doors = 0, difficult
 }
 
 /** Compact, hideable legend for the raid board. */
-export function BoardLegend({ onClose }: { onClose: () => void }) {
+export function BoardLegend({ onClose, fog }: { onClose: () => void; fog?: boolean }) {
   const rows: [string, string][] = [
     ["var(--legend-floor)", "Floor"],
     ["var(--legend-wall)", "Wall"],
@@ -78,7 +79,8 @@ export function BoardLegend({ onClose }: { onClose: () => void }) {
     ["var(--legend-hazard)", "Embers: -1 HP"],
     ["#e5484d", "Guard / next step"],
     ["#ffd166", "Key, door, exit"],
-    ["#06040380", "Explored, out of torchlight"],
+    ["#7fd28c", `Hourglass: +${EXTRA_MOVES.pickupValue} moves`],
+    ...(fog ? ([["#06040380", "Explored, out of torchlight"]] as [string, string][]) : []),
   ];
   return (
     <div className={styles.miniLegend} role="note" aria-label="Legend">

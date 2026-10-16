@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { findSafePath, generateRoom, legacyRoom, litCells, NATIVE_ENGINE, sampleTraps, simulateRaid, withNative, type Move, type Trap } from "@/engine";
 import { mockPixels, mockTraits } from "@/nft/mockArt";
-import { applyMove, getReplay, listRoomRaids, startRaid, visibleTraps, type RaidDeps, type RaidView } from "./raids";
+import { applyMove, applyMoves, getReplay, listRoomRaids, startRaid, visibleTraps, type RaidDeps, type RaidView } from "./raids";
 import { createMemoryStore } from "./store/memory";
 
 const room = (id: number) => generateRoom({ tokenId: id, pixels: mockPixels(id), traits: mockTraits(id) });
@@ -158,20 +158,62 @@ describe("server raids", () => {
     expect(r.ok).toBe(false);
   });
 
-  it("fog of war: never sends traps or tiles in unexplored darkness", async () => {
-    const r = room(42);
-    const far = { x: r.exit.x - 1, y: r.exit.y };
-    const lit = new Set(litCells(r, r.entrance));
-    expect(lit.has(far.y * r.size + far.x)).toBe(false);
-    const { deps } = setup([{ type: "guard", x: far.x, y: far.y, axis: "v" }]);
-    const v = ok(await startRaid(deps, 42, "alice"));
-    expect(v.visibleTraps).toEqual([]);
-    expect(v.guards).toEqual([]);
-    expect(v.guardRoutes).toEqual([]);
-    expect(v.fog.map[far.y * r.size + far.x]).toBe("?");
-    const json = JSON.stringify(v);
-    expect(json).not.toContain('"axis"');
-    expect(v.fog.map.split("").filter((c) => c !== "?").length).toBeLessThan(r.size * r.size / 2);
+  it("Keep going: reopens a raid that ran out of moves, once", async () => {
+    const { deps, room: r, store } = setup();
+    const v0 = ok(await startRaid(deps, 42, "alice"));
+    const bump: Move = "L"; // into the left edge from the entrance: spends a move
+    const out = new Array(r.rules.maxMoves).fill(bump) as Move[];
+    const ended = ok(await applyMoves(deps, v0.raidId, "alice", out, 0));
+    expect(ended.status).toBe("out_of_moves");
+    const again = ok(await applyMoves(deps, v0.raidId, "alice", ["E", "R"], out.length));
+    expect(again.status).toBe("active");
+    expect((await store.getRaid(v0.raidId))!.moves.endsWith("ER")).toBe(true);
+    // Run out again: no second extension.
+    const n = out.length + 2;
+    const done = ok(await applyMoves(deps, v0.raidId, "alice", new Array(30).fill(bump), n));
+    expect(done.status).toBe("out_of_moves");
+    const refused = await applyMoves(deps, v0.raidId, "alice", ["E"], done.moveCount);
+    expect(refused.ok).toBe(false);
+  });
+
+  it("Keep going is refused before you run out", async () => {
+    const { deps } = setup();
+    const v0 = ok(await startRaid(deps, 42, "alice"));
+    expect((await applyMoves(deps, v0.raidId, "alice", ["E"], 0)).ok).toBe(false);
+  });
+
+  describe("fog of war (boss rooms only)", () => {
+    const boss = generateRoom({ tokenId: 42, pixels: mockPixels(42), traits: [{ trait_type: "Tier", value: "Legendary" }] });
+    const bossDeps = (defense: Trap[]) => {
+      const store = createMemoryStore();
+      store.state.defenses["42"] = { tokenId: 42, owner: "0xowner", traps: defense, updatedAt: "" };
+      return { store, getRoom: async () => boss, ownerOf: async () => "0xOwner" } satisfies RaidDeps;
+    };
+
+    it("never sends traps or tiles in unexplored darkness", async () => {
+      const lit = new Set(litCells(boss, boss.entrance));
+      // Any open tile far from the torch, for an owner guard.
+      const farIdx = boss.tiles.findIndex((t, i) => t === "floor" && !lit.has(i) && i % boss.size > 8 && !boss.native.pickups.includes(i));
+      const far = { x: farIdx % boss.size, y: Math.floor(farIdx / boss.size) };
+      const v = ok(await startRaid(bossDeps([{ type: "guard", x: far.x, y: far.y, axis: "v" }]), 42, "alice"));
+      expect(v.fog.map[farIdx]).toBe("?");
+      const seen = [...v.fog.map].map((c) => c !== "?");
+      for (const t of v.visibleTraps) {
+        const cells = t.type === "lockdoor" ? [t, t.key] : t.type === "guard" ? v.guardRoutes[v.visibleTraps.filter((x) => x.type === "guard").indexOf(t)] : [t];
+        expect(cells.some((p) => p.x >= 0 && seen[p.y * boss.size + p.x])).toBe(true);
+      }
+      expect(v.fog.map.split("").filter((c) => c !== "?").length).toBeLessThan((boss.size * boss.size) / 2);
+    });
+
+    it("rooms below the boss tier have no fog, but hidden traps stay hidden", async () => {
+      const r = room(42);
+      expect(r.tier.fog).toBe(false);
+      const spikeAt = r.tiles.findIndex((t, i) => t === "floor" && i % r.size > 4 && !r.carved[i]);
+      const { deps } = setup([{ type: "spike", x: spikeAt % r.size, y: Math.floor(spikeAt / r.size) }]);
+      const v = ok(await startRaid(deps, 42, "alice"));
+      expect(v.fog.map).not.toContain("?");
+      expect(v.visibleTraps.some((t) => t.type === "spike")).toBe(false);
+    });
   });
 
   describe("native defenses", () => {

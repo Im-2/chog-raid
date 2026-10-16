@@ -185,14 +185,19 @@ export function RaidScreen({
               sound={sound}
               nativeLayer={nativeLayer}
               nativeGuards={raid.visibleTraps.slice(0, sight!.nativeTraps).filter((t) => t.type === "guard").length}
-              fog={{ seen: sight!.seen, lit: sight!.lit }}
+              fog={room.tier.fog ? { seen: sight!.seen, lit: sight!.lit } : undefined}
+              pickedUp={result.pickedUp}
               zoom={zoom}
               reduced={effects.reduced}
               onSlow={effects.onSlow}
               threatRoutes={sight!.guardRoutes}
               turn={result.stepsProcessed}
               onSwipe={move}
-              label={`Raid on ${chog.name}. Explored tiles stay dim; your torch lights ${room.tier.lightRadius} tiles around you.`}
+              label={
+                room.tier.fog
+                  ? `Boss raid on ${chog.name}, by torchlight: explored tiles stay dim; your torch lights ${room.tier.lightRadius} tiles around you.`
+                  : `Raid on ${chog.name}.`
+              }
             />
             <div className={styles.boardOverlay}>
               <Minimap
@@ -233,6 +238,7 @@ export function RaidScreen({
                 onAgain={again}
                 practice={practice}
                 raidId={raid.raidId}
+                onKeepGoing={raid.canKeepGoing ? raid.keepGoing : undefined}
               />
             )}
             {raid.phase === "starting" && (
@@ -249,7 +255,7 @@ export function RaidScreen({
               </div>
             )}
           </div>
-          {legend && <BoardLegend onClose={hideLegend} />}
+          {legend && <BoardLegend onClose={hideLegend} fog={room.tier.fog} />}
           <p className={styles.ticker} aria-live="polite">
             {last ? (
               describeEvent(last)
@@ -260,7 +266,11 @@ export function RaidScreen({
             ) : practice ? (
               <>No defender yet: you&apos;re raiding <b>practice traps</b>. Reach the glowing door.</>
             ) : (
-              <>Reach the glowing door. Your torch only lights a few tiles; some traps are hidden.</>
+              <>
+                Reach the glowing door. Some traps are hidden.
+                {room.tier.fog ? " Boss room: your torch only lights a few tiles." : ""}
+                {room.native.counts.pickups ? " Grab ⧗ for extra moves." : ""}
+              </>
             )}
           </p>
         </div>

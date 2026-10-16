@@ -30,8 +30,12 @@ export type TierSpec = {
   maxMoves: number;
   /** Trap slots the owner gets on top of the trait-based slots. */
   extraTrapSlots: number;
-  /** Torchlight radius in tiles (fog of war): smaller = darker room. */
+  /** Fog of war: only what the torch has lit is shown. Off = the whole room is visible. */
+  fog: boolean;
+  /** Torchlight radius in tiles when there is fog. */
   lightRadius: number;
+  /** "+moves" pickups placed a short detour off the route (see EXTRA_MOVES.pickupValue). */
+  movePickups: number;
   /** Multiplies raider points for clearing and Warden points for holding. */
   pointsMultiplier: number;
 };
@@ -40,27 +44,27 @@ export const TIERS: Record<TierId, TierSpec> = {
   common: {
     id: "common", level: 1, name: "Common", label: "Base",
     wallDensity: 0, hazards: 0, guards: 0, doors: 0, keyMinDistance: 0,
-    raiderHp: 5, maxMoves: 60, extraTrapSlots: 0, lightRadius: 5.5, pointsMultiplier: 1,
+    raiderHp: 5, maxMoves: 60, extraTrapSlots: 0, fog: false, lightRadius: 6, movePickups: 0, pointsMultiplier: 1,
   },
   uncommon: {
     id: "uncommon", level: 2, name: "Uncommon", label: "Tougher",
     wallDensity: 0.06, hazards: 2, guards: 1, doors: 0, keyMinDistance: 0,
-    raiderHp: 5, maxMoves: 56, extraTrapSlots: 0, lightRadius: 5, pointsMultiplier: 1.25,
+    raiderHp: 5, maxMoves: 56, extraTrapSlots: 0, fog: false, lightRadius: 6, movePickups: 0, pointsMultiplier: 1.25,
   },
   rare: {
     id: "rare", level: 3, name: "Rare", label: "Hard",
     wallDensity: 0.1, hazards: 4, guards: 1, doors: 1, keyMinDistance: 6,
-    raiderHp: 4, maxMoves: 54, extraTrapSlots: 1, lightRadius: 4.5, pointsMultiplier: 1.6,
+    raiderHp: 4, maxMoves: 54, extraTrapSlots: 1, fog: false, lightRadius: 6, movePickups: 1, pointsMultiplier: 1.6,
   },
   epic: {
     id: "epic", level: 4, name: "Epic", label: "Fortress",
     wallDensity: 0.28, hazards: 10, guards: 4, doors: 1, keyMinDistance: 10,
-    raiderHp: 4, maxMoves: 48, extraTrapSlots: 1, lightRadius: 4, pointsMultiplier: 2,
+    raiderHp: 4, maxMoves: 48, extraTrapSlots: 1, fog: false, lightRadius: 6, movePickups: 1, pointsMultiplier: 2,
   },
   legendary: {
     id: "legendary", level: 5, name: "Legendary", label: "Boss room",
     wallDensity: 0.28, hazards: 12, guards: 4, doors: 2, keyMinDistance: 10,
-    raiderHp: 4, maxMoves: 44, extraTrapSlots: 3, lightRadius: 3.5, pointsMultiplier: 3,
+    raiderHp: 4, maxMoves: 44, extraTrapSlots: 3, fog: true, lightRadius: 4.5, movePickups: 2, pointsMultiplier: 3,
   },
 };
 
@@ -68,6 +72,21 @@ export const TIER_ORDER: TierId[] = ["common", "uncommon", "rare", "epic", "lege
 
 /** The tier for a level (1-5), as stored on raid records. */
 export const tierAtLevel = (level: number | null | undefined): TierSpec => TIERS[TIER_ORDER[Math.max(1, Math.min(5, level ?? 1)) - 1]];
+
+/** Ways to get more moves. */
+export const EXTRA_MOVES = {
+  /** Moves added by each pickup on the map (once per pickup per raid). */
+  pickupValue: 6,
+  /** "Keep going": moves added when a raider runs out, and how many times per raid. */
+  extend: 10,
+  extendLimit: 1,
+  /** A clear that used "Keep going" pays this share of raider points and skips fast-clear,
+   *  fastest-clear and daily-board rankings. */
+  assistedPointsMultiplier: 0.5,
+} as const;
+
+/** Fog look in boss rooms: explored-but-unlit dimming, and darkness at the torch's edge (0-1). */
+export const FOG_LOOK = { explored: 0.3, edge: 0.45 } as const;
 
 /**
  * Boss signatures for the named 1/1s (Legendary). Each adds to the Legendary baseline.

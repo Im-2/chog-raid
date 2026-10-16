@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { guardRoute, litCells, raiderSight, simulateRaid, type Move, type Point, type RaidResult, type Room, type Trap } from "@/engine";
+import { EXTRA_MOVES } from "@/config/tiers";
+import { guardRoute, litCells, raiderSight, simulateRaid, type Move, type Point, type RaidInput, type RaidResult, type Room, type Trap } from "@/engine";
 
 /** Fog of war for drawing: the room as the raider knows it, what they've seen, what's lit now. */
 export type Sight = {
@@ -18,7 +19,7 @@ export type Sight = {
 
 export type RaidView = {
   result: RaidResult;
-  moves: Move[];
+  moves: RaidInput[];
   movesUsed: number;
   /** Traps the raider knows about (fog of war applied): see fogTraps in engine/fog.ts. */
   visibleTraps: Trap[];
@@ -28,6 +29,9 @@ export type RaidView = {
   sight: Sight | null;
   move(m: Move): void;
   reset(): void;
+  /** Out of moves with "Keep going" still available. */
+  canKeepGoing: boolean;
+  keepGoing(): void;
 };
 
 /**
@@ -36,7 +40,7 @@ export type RaidView = {
  * server (useServerRaid) and expose the same RaidView shape.
  */
 export function useLocalRaid(room: Room, traps: Trap[]): RaidView {
-  const [moves, setMoves] = useState<Move[]>([]);
+  const [moves, setMoves] = useState<RaidInput[]>([]);
   const result = useMemo(() => simulateRaid(room, traps, moves), [room, traps, moves]);
   const over = result.outcome !== "incomplete";
 
@@ -65,5 +69,7 @@ export function useLocalRaid(room: Room, traps: Trap[]): RaidView {
 
   const move = useCallback((m: Move) => setMoves((ms) => (simulateRaid(room, traps, ms).outcome === "incomplete" ? [...ms, m] : ms)), [room, traps]);
   const reset = useCallback(() => setMoves([]), []);
-  return { result, moves, movesUsed: moves.length, visibleTraps, keysHeld, over, sight, move, reset };
+  const canKeepGoing = result.outcome === "out_of_moves" && result.extended < EXTRA_MOVES.extendLimit;
+  const keepGoing = useCallback(() => setMoves((ms) => [...ms, "E"]), []);
+  return { result, moves, movesUsed: moves.length, visibleTraps, keysHeld, over, sight, move, reset, canKeepGoing, keepGoing };
 }

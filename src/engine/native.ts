@@ -71,7 +71,7 @@ export function bossFor(title: string | null | undefined): (BossSignature & { ti
 export function buildNative(room: Room, spec: TierSpec, boss: (BossSignature & { title: string }) | null): NativeDefenses {
   const rng = mulberry32(hashString(`native:${room.tokenId}`));
   const { size } = room;
-  const native: NativeDefenses = { traps: [], walls: [], hazards: [], moat: [], boss: boss ? { title: boss.title, name: boss.name, blurb: boss.blurb } : null };
+  const native: NativeDefenses = { traps: [], walls: [], hazards: [], moat: [], pickups: [], boss: boss ? { title: boss.title, name: boss.name, blurb: boss.blurb } : null };
   const fair = (traps: Trap[] = native.traps) => findSafePath(room, traps) !== null;
   const reserved = new Set<number>();
   const at = (p: Point) => p.y * size + p.x;
@@ -175,6 +175,37 @@ export function buildNative(room: Room, spec: TierSpec, boss: (BossSignature & {
     if (!placed) break;
   }
 
+  // 6. "+moves" pickups a short detour (2-3 steps) off the fair route, so grabbing one costs a
+  //    few moves and pays back more. Placed last: earlier pieces are unchanged by this step.
+  if (spec.movePickups > 0) {
+    const route = pathPoints(room, findSafePath(room, native.traps) ?? []);
+    const onRoute = new Set(route.map(at));
+    const fromRoute = new Int16Array(size * size).fill(-1);
+    const q: number[] = [...onRoute];
+    q.forEach((i) => (fromRoute[i] = 0));
+    while (q.length) {
+      const i = q.shift()!;
+      const p = { x: i % size, y: Math.floor(i / size) };
+      for (const m of DIR_ORDER) {
+        const r = step(p, m);
+        if (!inBounds(size, r)) continue;
+        const j = at(r);
+        const t = room.tiles[j];
+        if (fromRoute[j] >= 0 || t === "wall" || t === "void") continue;
+        fromRoute[j] = fromRoute[i] + 1;
+        q.push(j);
+      }
+    }
+    const spots = shuffle(rng, floor().filter((i) => fromRoute[i] >= 2 && fromRoute[i] <= 3 && free({ x: i % size, y: Math.floor(i / size) })));
+    for (const i of spots) {
+      if (native.pickups.length >= spec.movePickups) break;
+      // Keep them apart so each is its own choice.
+      if (native.pickups.some((j) => Math.abs((j % size) - (i % size)) + Math.abs(Math.floor(j / size) - Math.floor(i / size)) < 4)) continue;
+      native.pickups.push(i);
+      used.add(i);
+    }
+  }
+
   return native;
 }
 
@@ -217,8 +248,12 @@ export function difficultyOf(room: Room): { score: number; rating: number } {
   return { score, rating };
 }
 
-/** Engine version stamped on raids played with native defenses. Older raids replay on legacyRoom. */
-export const NATIVE_ENGINE = 2;
+/**
+ * Engine version stamped on raids. 2 = native defenses; 3 = adds "+moves" pickups and
+ * "Keep going". Raids replay on the room as it was for their version (roomForRaid).
+ */
+export const NATIVE_ENGINE = 3;
+const ENGINE_NATIVE_NO_PICKUPS = 2;
 
 /**
  * The room as it was before native defenses existed: native tiles back to floor, no native
@@ -232,12 +267,20 @@ export function legacyRoom(room: Room): Room {
     ...room,
     tiles,
     rules: { ...room.rules, raiderHp: GAME.raiderHp, maxMoves: GAME.maxMoves },
-    native: { traps: [], walls: [], hazards: [], moat: [], boss: null },
+    native: { traps: [], walls: [], hazards: [], moat: [], pickups: [], boss: null },
   };
 }
 
 /** The room a recorded raid was played on. */
-export const roomForRaid = (room: Room, engine: number | undefined): Room => (engine === NATIVE_ENGINE ? room : legacyRoom(room));
+export const roomForRaid = (room: Room, engine: number | undefined): Room =>
+  engine === NATIVE_ENGINE
+    ? room
+    : engine === ENGINE_NATIVE_NO_PICKUPS
+      ? { ...room, native: { ...room.native, pickups: [] } }
+      : legacyRoom(room);
+
+/** True for raid records made with native defenses (any version that has them). */
+export const hasNative = (engine: number | undefined) => engine === NATIVE_ENGINE || engine === ENGINE_NATIVE_NO_PICKUPS;
 
 /**
  * Owner traps saved before native defenses (or before a tier change) may now overlap a native
