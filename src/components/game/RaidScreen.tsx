@@ -24,7 +24,8 @@ const KEYS: Record<string, Move> = {
   w: "U", s: "D", a: "L", d: "R", W: "U", S: "D", A: "L", D: "R",
 };
 const HOWTO_SEEN = "chograid:howto-seen";
-const ZOOM_KEY = "chograid:zoom";
+// v2: earlier builds saved 1.5x as a default; start everyone on the whole room again.
+const ZOOM_KEY = "chograid:zoom-v2";
 const LEGEND_KEY = "chograid:legend-hidden";
 const ZOOMS = [1, 1.5, 2];
 
@@ -66,7 +67,7 @@ export function RaidScreen({
   const [panel, setPanel] = useState<"none" | "info" | "howto">("none");
   const [showResult, setShowResult] = useState(false);
   const [nativeLayer, setNativeLayer] = useState(false);
-  const [zoom, setZoom] = useState(1.5);
+  const [zoom, setZoom] = useState(1);
   const [legend, setLegend] = useState(false);
   const effects = useEffectsMode();
   const sight = raid.sight;
@@ -74,8 +75,8 @@ export function RaidScreen({
   useEffect(() => {
     try {
       const z = Number(localStorage.getItem(ZOOM_KEY));
-      // Phones start closer in; the whole room is 16 tiles across.
-      setZoom(ZOOMS.includes(z) ? z : window.innerWidth < 700 ? 1.5 : 1);
+      // Everyone starts on the whole room (entrance and exit both in view); zoom is opt-in.
+      setZoom(ZOOMS.includes(z) ? z : 1);
       setLegend(!localStorage.getItem(LEGEND_KEY));
     } catch {}
   }, []);
