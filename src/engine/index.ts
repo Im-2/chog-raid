@@ -13,3 +13,4 @@ export type { SearchStart } from "./traps";
 export { litCells, exploredCells } from "./visibility";
 export { fogView, fogRoom, fogTraps, publicRoom, raiderSight, seenMask } from "./fog";
 export type { FogView, PublicRoom } from "./fog";
+export { practiceTraps } from "./practice";

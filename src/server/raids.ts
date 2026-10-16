@@ -15,7 +15,7 @@ import {
   fitTraps,
   roomForRaid,
   NATIVE_ENGINE,
-  sampleTraps,
+  practiceTraps,
   simulateRaid,
   type FogView,
   type Move,
@@ -111,19 +111,28 @@ export function viewOf(current: Room, r: RaidRecord): RaidView {
 }
 
 /** Traps used for a room right now: the owner's saved defense, or seeded practice traps. */
-export async function trapsFor(deps: RaidDeps, room: Room): Promise<{ traps: Trap[]; practice: boolean; defender: string | null }> {
-  const defense = await deps.store.getDefense(room.tokenId);
+export async function trapsFor(
+  deps: RaidDeps,
+  room: Room,
+  saved?: Awaited<ReturnType<Store["getDefense"]>>,
+): Promise<{ traps: Trap[]; practice: boolean; defender: string | null }> {
+  const defense = saved === undefined ? await deps.store.getDefense(room.tokenId) : saved;
   // The room's native defenses always come first; the owner's traps (or practice traps) go on top.
   return defense
     ? { traps: withNative(room, fitTraps(room, defense.traps)), practice: false, defender: defense.owner }
-    : { traps: withNative(room, sampleTraps(room, room.seed)), practice: true, defender: null };
+    : { traps: withNative(room, practiceTraps(room)), practice: true, defender: null };
 }
 
 export async function startRaid(deps: RaidDeps, tokenId: number, raider: string): Promise<Result<RaidView>> {
-  const room = await deps.getRoom(tokenId);
+  // Independent lookups run together: the room, its saved defense, and closing any raid this
+  // raider left open on it. Only the insert has to wait for them.
+  const [room, defense] = await Promise.all([
+    deps.getRoom(tokenId),
+    deps.store.getDefense(tokenId),
+    deps.store.abandonActive(raider, tokenId),
+  ]);
   if (!room) return fail(404, "No such Chog.");
-  const { traps, practice, defender } = await trapsFor(deps, room);
-  await deps.store.abandonActive(raider, tokenId);
+  const { traps, practice, defender } = await trapsFor(deps, room, defense);
   const now = new Date().toISOString();
   const record: RaidRecord = {
     id: randomUUID(),

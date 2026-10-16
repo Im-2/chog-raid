@@ -6,14 +6,16 @@
 // knowledge, replans whenever it learns something, and misjudges a step `MISTAKE` of the time.
 // If no route that avoids guard contact exists it tries to slip past guards, else it gives up.
 //
-// usage: npx tsx --conditions=react-server scripts/balance-sim.mts [raidsPerTier=1000]
+// usage: npx tsx --conditions=react-server scripts/balance-sim.mts [raidsPerTier=1000] [--practice]
+// --practice: undefended rooms with their practice traps instead of a random owner layout.
 import { TIER_ORDER, TIERS } from "../src/config/tiers.ts";
-import { findSafePath, sampleTraps, simulateRaid, withNative, type Move, type Room, type Trap } from "../src/engine/index.ts";
+import { findSafePath, practiceTraps, sampleTraps, simulateRaid, withNative, type Move, type Room, type Trap } from "../src/engine/index.ts";
 import { DIR_ORDER } from "../src/engine/grid.ts";
 import { mulberry32 } from "../src/engine/rng.ts";
 import { loadRealRooms } from "./lib/real-rooms.mts";
 
-const PER_TIER = Number(process.argv[2] ?? 1000);
+const PER_TIER = Number(process.argv.find((a) => /^\d+$/.test(a)) ?? 1000);
+const PRACTICE_MODE = process.argv.includes("--practice");
 const MISTAKE = 0.08;
 
 function botRaid(room: Room, traps: Trap[], seed: number) {
@@ -57,7 +59,7 @@ for (const tier of TIER_ORDER) {
   const tally: Record<string, number> = { breach: 0, defeated: 0, out_of_moves: 0, gave_up: 0 };
   for (let i = 0; i < PER_TIER; i++) {
     const room = pool[i % pool.length];
-    const owner = sampleTraps(room, 7919 * (i + 1));
+    const owner = PRACTICE_MODE ? practiceTraps(room) : sampleTraps(room, 7919 * (i + 1));
     tally[botRaid(room, withNative(room, owner), 104729 * (i + 1))]++;
   }
   const pct = (k: string) => `${((100 * tally[k]) / PER_TIER).toFixed(1)}%`.padStart(6);

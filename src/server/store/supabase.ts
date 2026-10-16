@@ -85,15 +85,20 @@ export function createSupabaseStore(url: string, serviceKey: string): Store {
       return (rows ?? []).length === 1;
     },
     async abandonActive(raider, tokenId) {
-      check(await db.from("raids").delete().eq("raider", raider).eq("token_id", tokenId).eq("status", "active").eq("move_count", 0));
-      check(
-        await db
+      // Unplayed raids are deleted; played ones are kept as "abandoned". The two touch disjoint
+      // rows (move_count 0 vs > 0), so they run at once.
+      const [del, upd] = await Promise.all([
+        db.from("raids").delete().eq("raider", raider).eq("token_id", tokenId).eq("status", "active").eq("move_count", 0),
+        db
           .from("raids")
           .update({ status: "abandoned", updated_at: new Date().toISOString() })
           .eq("raider", raider)
           .eq("token_id", tokenId)
-          .eq("status", "active"),
-      );
+          .eq("status", "active")
+          .gt("move_count", 0),
+      ]);
+      check(del);
+      check(upd);
     },
     async listRaids(tokenId, limit) {
       const rows = check(

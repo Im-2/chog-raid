@@ -73,6 +73,20 @@ export const TIER_ORDER: TierId[] = ["common", "uncommon", "rare", "epic", "lege
 /** The tier for a level (1-5), as stored on raid records. */
 export const tierAtLevel = (level: number | null | undefined): TierSpec => TIERS[TIER_ORDER[Math.max(1, Math.min(5, level ?? 1)) - 1]];
 
+/**
+ * Practice traps: what an undefended room gets until its holder sets their own. Placed on or
+ * beside the fair route so a practice raid always has something to dodge: guards and locked doors
+ * are visible, spikes and teleporters hidden until stepped on. Rarer tiers already have native
+ * guards and doors, so their practice set is mostly hidden traps.
+ */
+export const PRACTICE: Record<TierId, { guards: number; doors: number; spikes: number; teleporters: number }> = {
+  common: { guards: 1, doors: 1, spikes: 2, teleporters: 0 },
+  uncommon: { guards: 1, doors: 1, spikes: 2, teleporters: 1 },
+  rare: { guards: 0, doors: 0, spikes: 2, teleporters: 1 },
+  epic: { guards: 0, doors: 0, spikes: 2, teleporters: 1 },
+  legendary: { guards: 0, doors: 0, spikes: 3, teleporters: 1 },
+};
+
 /** Ways to get more moves. */
 export const EXTRA_MOVES = {
   /** Moves added by each pickup on the map (once per pickup per raid). */

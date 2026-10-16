@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findSafePath, generateRoom, legacyRoom, litCells, NATIVE_ENGINE, sampleTraps, simulateRaid, withNative, type Move, type Trap } from "@/engine";
+import { findSafePath, generateRoom, legacyRoom, litCells, NATIVE_ENGINE, practiceTraps, sampleTraps, simulateRaid, withNative, type Move, type Trap } from "@/engine";
 import { mockPixels, mockTraits } from "@/nft/mockArt";
 import { applyMove, applyMoves, getReplay, listRoomRaids, startRaid, visibleTraps, type RaidDeps, type RaidView } from "./raids";
 import { createMemoryStore } from "./store/memory";
@@ -35,7 +35,7 @@ describe("server raids", () => {
 
   it("matches a full local replay move by move, and records the outcome", async () => {
     const { deps, store, room } = setup();
-    const traps = sampleTraps(room, room.seed);
+    const traps = withNative(room, practiceTraps(room));
     const moves = findSafePath(room, traps)!;
     const v0 = ok(await startRaid(deps, 42, "alice"));
     const v = await play(deps, v0.raidId, moves);
@@ -105,7 +105,7 @@ describe("server raids", () => {
   it("lists finished raids without trap positions", async () => {
     const { deps, room } = setup();
     const v0 = ok(await startRaid(deps, 42, "alice"));
-    await play(deps, v0.raidId, findSafePath(room, sampleTraps(room, room.seed))!);
+    await play(deps, v0.raidId, findSafePath(room, withNative(room, practiceTraps(room)))!);
     const log = await listRoomRaids(deps, 42);
     expect(log).toHaveLength(1);
     expect(log[0].status).toBe("breach");
