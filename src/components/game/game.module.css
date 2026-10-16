@@ -699,11 +699,10 @@
   border-color: var(--torch);
   color: var(--torch);
 }
+/* Under the board, never over it (the entrance and raider can be anywhere on the left edge). */
 .miniLegend {
-  position: absolute;
-  left: 8px;
-  bottom: 8px;
-  z-index: 2;
+  position: relative;
+  margin-top: 8px;
   padding: 6px 26px 6px 8px;
   background: rgba(11, 8, 6, 0.88);
   border: 2px solid var(--border);
@@ -713,8 +712,9 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  display: grid;
-  gap: 2px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
 }
 .miniLegend li {
   display: flex;

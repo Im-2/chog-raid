@@ -224,7 +224,6 @@ export function RaidScreen({
                 </button>
               </div>
             </div>
-            {legend && <BoardLegend onClose={hideLegend} />}
             {showResult && (
               <ResultCard
                 result={result}
@@ -250,6 +249,7 @@ export function RaidScreen({
               </div>
             )}
           </div>
+          {legend && <BoardLegend onClose={hideLegend} />}
           <p className={styles.ticker} aria-live="polite">
             {last ? (
               describeEvent(last)

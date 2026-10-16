@@ -50,7 +50,22 @@ function toCard(c: Chog): RoomCard {
   };
 }
 
-const fallbackCard = (id: number): RoomCard => ({ tokenId: id, name: chogName(id), image: `/api/chogs/${id}/image`, ...withDiff(id) });
+const fallbackCard = (id: number): RoomCard => {
+  const d = withDiff(id);
+  return { tokenId: id, name: chogName(id), image: `/api/chogs/${id}/image`, tier: d.diff?.tierName, ...d };
+};
+
+/**
+ * Cards for a page of rooms. On the real collection everything a card shows (official name,
+ * image route, tier, difficulty) is known offline, so no metadata is read: a cold page used to
+ * take ~27 s reading tokenURI + IPFS for each card. Mock Chogs still come from the adapter.
+ */
+async function cardsFor(ids: number[]): Promise<RoomCard[]> {
+  const adapter = getNftAdapter();
+  if (adapter.mode !== "mock") return ids.map(fallbackCard);
+  const chogs = await Promise.all(ids.map((id) => adapter.getChog(id).catch(() => null)));
+  return ids.map((id, i) => (chogs[i] ? toCard(chogs[i]) : fallbackCard(id)));
+}
 
 /** Every room ordered by real difficulty score, hardest first (ties by token id). */
 export function hardestIds(total: number): number[] {
@@ -81,12 +96,8 @@ export async function listRooms(opts: { sort: RoomSort; page: number; pageSize: 
     if (ordered.length === 0) return { items: [], total: 0, hasMore: false, reason: "no-raid-data" as const };
     const start = opts.page * opts.pageSize;
     const slice = ordered.slice(start, start + opts.pageSize);
-    const chogs = await Promise.all(slice.map((r) => adapter.getChog(r.tokenId).catch(() => null)));
-    const items = slice.map((r, i): RoomCard => {
-      const c = chogs[i];
-      const base = c ? toCard(c) : fallbackCard(r.tokenId);
-      return { ...base, raids: r.raids, defenseRate: r.defenseRate };
-    });
+    const cards = await cardsFor(slice.map((r) => r.tokenId));
+    const items = slice.map((r, i): RoomCard => ({ ...cards[i], raids: r.raids, defenseRate: r.defenseRate }));
     return { items, total: ordered.length, hasMore: start + opts.pageSize < ordered.length };
   }
 
@@ -94,19 +105,13 @@ export async function listRooms(opts: { sort: RoomSort; page: number; pageSize: 
     const ordered = hardestIds(total);
     const start = opts.page * opts.pageSize;
     const ids = ordered.slice(start, start + opts.pageSize);
-    const chogs = await Promise.all(ids.map((id) => adapter.getChog(id).catch(() => null)));
-    return { items: ids.map((id, i) => (chogs[i] ? toCard(chogs[i]) : fallbackCard(id))), total: ordered.length, hasMore: start + opts.pageSize < ordered.length };
+    return { items: await cardsFor(ids), total: ordered.length, hasMore: start + opts.pageSize < ordered.length };
   }
 
   // Token order, optionally skipping rooms (e.g. ones you already cleared).
   const all = Array.from({ length: total }, (_, i) => i + 1).filter((id) => !opts.exclude?.has(id));
   const start = opts.page * opts.pageSize;
   const ids = all.slice(start, start + opts.pageSize);
-  const chogs = await Promise.all(ids.map((id) => adapter.getChog(id).catch(() => null)));
-  // Keep cards for Chogs whose metadata timed out; their room page retries on open.
-  const items = ids.map((id, i): RoomCard => {
-    const c = chogs[i];
-    return c ? toCard(c) : fallbackCard(id);
-  });
+  const items = await cardsFor(ids);
   return { items, total: all.length, hasMore: start + opts.pageSize < all.length };
 }
