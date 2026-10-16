@@ -7,7 +7,6 @@ import { loadSoundPref, saveSoundPref } from "@/lib/sound";
 import { Board } from "../board/Board";
 import { Minimap } from "../board/Minimap";
 import { useEffectsMode } from "@/lib/effects";
-import { DifficultyBadge } from "../ui/DifficultyBadge";
 import { Sheet } from "../ui/Sheet";
 import { difficultyOfRoom } from "@/lib/difficulty";
 import { DPad } from "./DPad";
@@ -145,7 +144,6 @@ export function RaidScreen({
           <span>
             <span className="num">{chog.name}</span>
           </span>
-          <DifficultyBadge d={difficultyOfRoom(room)} size="sm" />
           <Badges badges={defenderBadges} max={2} />
           {daily && <span className="tag">Daily</span>}
           {practice && <span className="tag">Practice</span>}
