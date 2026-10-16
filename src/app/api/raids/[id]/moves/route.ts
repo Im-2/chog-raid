@@ -1,6 +1,7 @@
 import { raidDeps, readJson, respond } from "@/server/deps";
 import { currentRaider } from "@/server/identity";
 import { applyMoves } from "@/server/raids";
+import { warm } from "@/server/warm";
 
 /**
  * Make moves: POST { moves: ["U","R",...], seq } (or the single-move form { move, seq }).
@@ -17,4 +18,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     console.error("move:", e);
     return Response.json({ error: "The move didn't go through. Try again." }, { status: 502 });
   }
+}
+
+/** Keep-warm ping (see src/server/warm.ts). */
+export function GET() {
+  return warm();
 }

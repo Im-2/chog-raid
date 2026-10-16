@@ -2,6 +2,29 @@ import "server-only";
 import { generateRoom, type Pixel, type Room } from "@/engine";
 import { getNftAdapter, type Chog } from "@/nft";
 import { getStore } from "@/server/store";
+import bundled from "@/data/room-inputs.json";
+import { env } from "@/lib/env";
+
+type Bundled = { contract: string; rooms: Record<string, [name: string, image: string, traits: [string, string][], pixels: string]> };
+const BUNDLE = bundled as unknown as Bundled;
+
+/**
+ * Every Chog Genesis room's inputs ship with the server (src/data/room-inputs.json, built by
+ * scripts/build-room-inputs.mts), so on the real collection a room is built with no network calls.
+ * Used only when the app points at the contract the bundle was built from.
+ */
+function fromBundle(tokenId: number): { chog: Chog; pixels: Pixel[] } | null {
+  if (getNftAdapter().mode !== "onchain" || env.chogContract?.toLowerCase() !== BUNDLE.contract) return null;
+  const row = BUNDLE.rooms[tokenId];
+  if (!row) return null;
+  const [name, image, traits, b64] = row;
+  const raw = Buffer.from(b64, "base64");
+  const pixels: Pixel[] = Array.from({ length: raw.length / 3 }, (_, i) => [raw[i * 3], raw[i * 3 + 1], raw[i * 3 + 2]] as const);
+  return {
+    chog: { tokenId, name, image: `/api/chogs/${tokenId}/image`, imageSource: image, traits: traits.map(([trait_type, value]) => ({ trait_type, value })) },
+    pixels,
+  };
+}
 
 // Rooms are deterministic, so each one is generated once per server process.
 const cache = new Map<number, Promise<{ chog: Chog; room: Room } | null>>();
@@ -28,6 +51,8 @@ const decode = (s: string): Pixel[] =>
   });
 
 async function build(tokenId: number): Promise<{ chog: Chog; room: Room } | null> {
+  const local = fromBundle(tokenId);
+  if (local) return { chog: local.chog, room: roomFor(tokenId, local.chog, local.pixels) };
   const adapter = getNftAdapter();
   const key = `room:v${INPUTS_VERSION}:${adapter.mode}:${tokenId}`;
   const store = getStore();

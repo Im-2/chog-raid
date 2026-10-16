@@ -1,6 +1,7 @@
 import { raidDeps, readJson, respond } from "@/server/deps";
 import { currentRaider } from "@/server/identity";
 import { startRaid, type RaidDeps } from "@/server/raids";
+import { warm } from "@/server/warm";
 
 /** Start a raid: POST { tokenId }. Sends a Server-Timing header so slow starts can be diagnosed. */
 export async function POST(req: Request) {
@@ -39,4 +40,9 @@ export async function POST(req: Request) {
     console.error("start raid:", e);
     return Response.json({ error: "Couldn't open this room right now." }, { status: 502 });
   }
+}
+
+/** Keep-warm ping (see src/server/warm.ts). */
+export function GET() {
+  return warm();
 }

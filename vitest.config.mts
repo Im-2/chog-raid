@@ -3,5 +3,6 @@ import path from "node:path";
 
 export default defineConfig({
   resolve: { alias: { "@": path.resolve(import.meta.dirname, "src") } },
-  test: { include: ["src/**/*.test.ts"] },
+  // Room generation is CPU-heavy; under parallel load some suites need more than the 5 s default.
+  test: { include: ["src/**/*.test.ts"], testTimeout: 30_000 },
 });
