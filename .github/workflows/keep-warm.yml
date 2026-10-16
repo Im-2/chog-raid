@@ -1,0 +1,18 @@
+# Pings the raid API every 5 minutes so a server instance with an open database connection is
+# usually ready, and the first raid after a quiet spell doesn't wait for a cold start.
+# GitHub may delay scheduled runs by a few minutes; that's fine.
+name: keep-warm
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Ping raid routes
+        run: |
+          for path in /api/raids /api/raids/warm/moves /room/1; do
+            curl -s -o /dev/null -w "$path %{http_code} %{time_total}s\n" "https://chog-raid.vercel.app$path" || true
+          done
