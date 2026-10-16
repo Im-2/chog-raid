@@ -61,6 +61,8 @@ export type BoardProps = {
   nativeLayer?: boolean;
   /** Fog of war: only `seen` tiles are drawn; `lit` tiles are in torchlight, the rest dimmed. */
   fog?: { seen: boolean[]; lit: number[] };
+  /** Tiles the client actually knows (from the server). Unknown tiles are never painted. */
+  known?: boolean[];
   /** Camera zoom (1 = whole room). When set, the camera follows the raider. */
   zoom?: number;
   /** Low-end / reduced motion: no shake, flicker or shimmer, few particles, camera snaps. */
@@ -263,11 +265,12 @@ export function Board(props: BoardProps) {
       // Static tile layer, offscreen: only newly explored tiles are painted.
       if (!layerRef.current) layerRef.current = { layer: createTileLayer(room.size), room: null, seen: undefined, native: [] };
       const L = layerRef.current;
-      if (L.room !== room || L.seen !== p.fog?.seen) {
-        paintTiles(L.layer, room, p.fog?.seen);
+      const paintMask = p.fog?.seen ?? p.known;
+      if (L.room !== room || L.seen !== paintMask) {
+        paintTiles(L.layer, room, paintMask);
         L.native = nativeCells(room).filter((i) => !p.fog || p.fog.seen[i]);
         L.room = room;
-        L.seen = p.fog?.seen;
+        L.seen = paintMask;
       }
       if (p.fog && (fogRef.current?.seen !== p.fog.seen || fogRef.current.lit !== p.fog.lit)) {
         fogRef.current = { seen: p.fog.seen, lit: p.fog.lit, canvas: renderFogMask(room.size, p.fog.seen, p.fog.lit, FOG_LOOK.explored) };
@@ -408,7 +411,7 @@ export function Board(props: BoardProps) {
       }
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(L.layer.canvas, 0, 0);
-      drawLiveTiles(ctx, room, t, p.fog?.seen, p.reduced);
+      drawLiveTiles(ctx, room, t, paintMask, p.reduced);
       drawEndpoint(ctx, room.entrance, "in", t);
       drawEndpoint(ctx, room.exit, "out", t);
 
@@ -444,7 +447,7 @@ export function Board(props: BoardProps) {
 
       // "+moves" pickups not collected yet (only on tiles the raider has seen).
       for (const i of room.native?.pickups ?? []) {
-        if (p.pickedUp?.includes(i) || (p.fog && !p.fog.seen[i])) continue;
+        if (p.pickedUp?.includes(i) || (paintMask && !paintMask[i])) continue;
         drawPickup(ctx, { x: i % room.size, y: Math.floor(i / room.size) }, p.reduced ? 0 : t);
       }
       p.traps.forEach((trap, i) => drawTrap(ctx, trap, t, { keyTaken: p.keysHeld?.includes(i) }));

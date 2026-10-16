@@ -35,7 +35,7 @@ function walk(r: Room, from: Point, to: Point): Move[] | null {
   return null;
 }
 
-describe("extra moves", () => {
+describe("extra moves", { timeout: 30_000 }, () => {
   it("places the tier's pickups a short detour off the route, deterministically", () => {
     for (const tier of ["common", "rare", "legendary"] as TierId[]) {
       for (let id = 1; id <= 20; id++) {

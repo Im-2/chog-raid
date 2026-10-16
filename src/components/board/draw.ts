@@ -124,14 +124,18 @@ export function renderTileLayer(room: Room): HTMLCanvasElement {
   return layer.canvas;
 }
 
-/** An offscreen tile layer that fills in as the raider explores. */
-export type TileLayer = { canvas: HTMLCanvasElement; painted: Uint8Array; tokenId: number };
+/**
+ * An offscreen tile layer that fills in as tiles become known. `painted[i]` records what tile i was
+ * painted as (type, color, carved, native), so a tile is repainted whenever what's known about it
+ * changes, never left stale.
+ */
+export type TileLayer = { canvas: HTMLCanvasElement; painted: string[]; tokenId: number };
 
 export function createTileLayer(size: number): TileLayer {
   const canvas = document.createElement("canvas");
   canvas.width = size * T;
   canvas.height = size * T;
-  return { canvas, painted: new Uint8Array(size * size), tokenId: -1 };
+  return { canvas, painted: new Array(size * size).fill(""), tokenId: -1 };
 }
 
 /**
@@ -141,21 +145,20 @@ export function createTileLayer(size: number): TileLayer {
 export function paintTiles(layer: TileLayer, room: Room, seen?: boolean[]) {
   const ctx = layer.canvas.getContext("2d")!;
   const n = room.size * room.size;
-  let reset = layer.tokenId !== room.tokenId;
-  if (!reset && seen) for (let i = 0; i < n; i++) if (layer.painted[i] && !seen[i]) reset = true;
-  if (reset) {
+  if (layer.tokenId !== room.tokenId) {
     ctx.clearRect(0, 0, layer.canvas.width, layer.canvas.height);
-    layer.painted.fill(0);
+    layer.painted.fill("");
     layer.tokenId = room.tokenId;
   }
   const nativeTile = nativeTiles(room);
+  const keyOf = (i: number) =>
+    seen && !seen[i] ? "" : `${room.tiles[i]}${room.colors[i]}${room.carved[i] ? 1 : 0}${nativeTile.has(i) ? 1 : 0}${i >= room.size ? room.tiles[i - room.size] : ""}`;
   for (let i = 0; i < n; i++) {
-    if (layer.painted[i] || (seen && !seen[i])) continue;
-    paintTile(ctx, room, i, nativeTile);
-    layer.painted[i] = 1;
-    // A wall just found may shade the tile under it, painted earlier.
-    const below = i + room.size;
-    if (room.tiles[i] === "wall" && below < n && layer.painted[below]) paintTile(ctx, room, below, nativeTile);
+    const key = keyOf(i);
+    if (layer.painted[i] === key) continue;
+    if (key) paintTile(ctx, room, i, nativeTile);
+    else ctx.clearRect((i % room.size) * T, Math.floor(i / room.size) * T, T, T);
+    layer.painted[i] = key;
   }
 }
 

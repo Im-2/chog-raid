@@ -187,6 +187,7 @@ export function RaidScreen({
               nativeGuards={raid.visibleTraps.slice(0, sight!.nativeTraps).filter((t) => t.type === "guard").length}
               fog={room.tier.fog ? { seen: sight!.seen, lit: sight!.lit } : undefined}
               pickedUp={result.pickedUp}
+              known={sight!.seen}
               zoom={zoom}
               reduced={effects.reduced}
               onSlow={effects.onSlow}
@@ -199,36 +200,6 @@ export function RaidScreen({
                   : `Raid on ${chog.name}.`
               }
             />
-            <div className={styles.boardOverlay}>
-              <Minimap
-                className={styles.minimap}
-                room={sight!.room}
-                seen={sight!.seen}
-                at={result.endAt}
-                traps={raid.visibleTraps}
-                keysHeld={raid.keysHeld}
-                guards={sight!.guards}
-              />
-              <div className={styles.camBtns} role="group" aria-label="Camera zoom">
-                {ZOOMS.map((z) => (
-                  <button key={z} aria-pressed={zoom === z} onClick={() => pickZoom(z)} title={z === 1 ? "Whole room" : `Zoom ${z}x`}>
-                    {z === 1 ? "▣" : `${z}x`}
-                  </button>
-                ))}
-              </div>
-              <div className={styles.camBtns}>
-                <button aria-pressed={legend} onClick={() => (legend ? hideLegend() : setLegend(true))} title="Legend">
-                  ?
-                </button>
-                <button
-                  aria-pressed={effects.reduced}
-                  onClick={() => effects.setMode(effects.reduced ? "full" : "reduced")}
-                  title={effects.reduced ? "Reduced effects on (tap for full effects)" : "Full effects (tap to reduce)"}
-                >
-                  {effects.reduced ? "Lite" : "FX"}
-                </button>
-              </div>
-            </div>
             {showResult && (
               <ResultCard
                 result={result}
@@ -276,6 +247,36 @@ export function RaidScreen({
         </div>
 
         <div className={styles.controls}>
+          <div className={styles.boardTools}>
+            <Minimap
+              className={styles.minimap}
+              room={sight!.room}
+              seen={sight!.seen}
+              at={result.endAt}
+              traps={raid.visibleTraps}
+              keysHeld={raid.keysHeld}
+              guards={sight!.guards}
+            />
+            <div className={styles.camBtns} role="group" aria-label="Camera zoom">
+              {ZOOMS.map((z) => (
+                <button key={z} aria-pressed={zoom === z} onClick={() => pickZoom(z)} title={z === 1 ? "Whole room" : `Zoom ${z}x`}>
+                  {z === 1 ? "▣" : `${z}x`}
+                </button>
+              ))}
+            </div>
+            <div className={styles.camBtns}>
+              <button aria-pressed={legend} onClick={() => (legend ? hideLegend() : setLegend(true))} title="Legend">
+                ?
+              </button>
+              <button
+                aria-pressed={effects.reduced}
+                onClick={() => effects.setMode(effects.reduced ? "full" : "reduced")}
+                title={effects.reduced ? "Reduced effects on (tap for full effects)" : "Full effects (tap to reduce)"}
+              >
+                {effects.reduced ? "Lite" : "FX"}
+              </button>
+            </div>
+          </div>
           <DPad onMove={move} disabled={raid.over || raid.phase !== "ready"} />
           <button className="btn" onClick={again} disabled={!raid.movesUsed || raid.phase === "starting"}>
             Restart <kbd>R</kbd>

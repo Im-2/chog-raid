@@ -765,3 +765,36 @@
 .keepGoing p {
   margin: 6px 0 0;
 }
+
+/* Map and view controls, beside the d-pad (never on top of the board). */
+.boardTools {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.boardTools .minimap {
+  width: 84px;
+  height: 84px;
+}
+.boardTools {
+  flex-wrap: wrap;
+}
+.boardTools .camBtns {
+  flex-wrap: nowrap;
+}
+@media (max-width: 520px) {
+  .boardTools .minimap {
+    width: 64px;
+    height: 64px;
+  }
+}
+/* Below the desktop side-by-side layout the d-pad comes first; map and view tools go under it. */
+@media not ((min-width: 900px) and (min-aspect-ratio: 1/1)) {
+  .controls .boardTools {
+    order: 3;
+    flex-basis: 100%;
+    justify-content: center;
+    margin: 4px 0 0;
+  }
+}
