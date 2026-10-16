@@ -5,12 +5,14 @@ import { useCallback, useEffect, useState } from "react";
 import type { Move, PublicRoom } from "@/engine";
 import { loadSoundPref, saveSoundPref } from "@/lib/sound";
 import { Board } from "../board/Board";
+import { Minimap } from "../board/Minimap";
+import { useEffectsMode } from "@/lib/effects";
 import { DifficultyBadge } from "../ui/DifficultyBadge";
 import { Sheet } from "../ui/Sheet";
 import { difficultyOfRoom } from "@/lib/difficulty";
 import { DPad } from "./DPad";
 import { describeEvent } from "./describe";
-import { Hud } from "./Hud";
+import { BoardLegend, Hud } from "./Hud";
 import { ResultCard } from "./ResultCard";
 import { HowToPlay, RoomInfo, type ChogSummary } from "./RoomInfo";
 import { useServerRaid } from "./useServerRaid";
@@ -23,6 +25,9 @@ const KEYS: Record<string, Move> = {
   w: "U", s: "D", a: "L", d: "R", W: "U", S: "D", A: "L", D: "R",
 };
 const HOWTO_SEEN = "chograid:howto-seen";
+const ZOOM_KEY = "chograid:zoom";
+const LEGEND_KEY = "chograid:legend-hidden";
+const ZOOMS = [1, 1.5, 2];
 
 export function SoundToggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -62,6 +67,31 @@ export function RaidScreen({
   const [panel, setPanel] = useState<"none" | "info" | "howto">("none");
   const [showResult, setShowResult] = useState(false);
   const [nativeLayer, setNativeLayer] = useState(false);
+  const [zoom, setZoom] = useState(1.5);
+  const [legend, setLegend] = useState(false);
+  const effects = useEffectsMode();
+  const sight = raid.sight;
+
+  useEffect(() => {
+    try {
+      const z = Number(localStorage.getItem(ZOOM_KEY));
+      // Phones start closer in; the whole room is 16 tiles across.
+      setZoom(ZOOMS.includes(z) ? z : window.innerWidth < 700 ? 1.5 : 1);
+      setLegend(!localStorage.getItem(LEGEND_KEY));
+    } catch {}
+  }, []);
+  const pickZoom = (z: number) => {
+    setZoom(z);
+    try {
+      localStorage.setItem(ZOOM_KEY, String(z));
+    } catch {}
+  };
+  const hideLegend = () => {
+    setLegend(false);
+    try {
+      localStorage.setItem(LEGEND_KEY, "1");
+    } catch {}
+  };
 
   useEffect(() => {
     setSound(loadSoundPref());
@@ -142,20 +172,61 @@ export function RaidScreen({
             movesLeft={result.movesLeft}
             maxMoves={room.rules.maxMoves}
             keys={result.keys.length}
+            doors={raid.visibleTraps.filter((t) => t.type === "lockdoor").length}
+            difficulty={difficultyOfRoom(room)}
           />
           <div className={styles.boardFrame}>
             <Board
-              room={raid.sight?.room ?? raid.sight!.room}
+              room={sight!.room}
               traps={raid.visibleTraps}
               keysHeld={raid.keysHeld}
               path={result.path}
-              guards={result.guards}
+              guards={sight!.guards}
               events={result.events}
               outcome={result.outcome}
               sound={sound}
               nativeLayer={nativeLayer}
+              nativeGuards={raid.visibleTraps.slice(0, sight!.nativeTraps).filter((t) => t.type === "guard").length}
+              fog={{ seen: sight!.seen, lit: sight!.lit }}
+              zoom={zoom}
+              reduced={effects.reduced}
+              onSlow={effects.onSlow}
+              threatRoutes={sight!.guardRoutes}
+              turn={result.stepsProcessed}
               onSwipe={move}
+              label={`Raid on ${chog.name}. Explored tiles stay dim; your torch lights ${room.tier.lightRadius} tiles around you.`}
             />
+            <div className={styles.boardOverlay}>
+              <Minimap
+                className={styles.minimap}
+                room={sight!.room}
+                seen={sight!.seen}
+                at={result.endAt}
+                traps={raid.visibleTraps}
+                keysHeld={raid.keysHeld}
+                guards={sight!.guards}
+              />
+              <div className={styles.camBtns} role="group" aria-label="Camera zoom">
+                {ZOOMS.map((z) => (
+                  <button key={z} aria-pressed={zoom === z} onClick={() => pickZoom(z)} title={z === 1 ? "Whole room" : `Zoom ${z}x`}>
+                    {z === 1 ? "▣" : `${z}x`}
+                  </button>
+                ))}
+              </div>
+              <div className={styles.camBtns}>
+                <button aria-pressed={legend} onClick={() => (legend ? hideLegend() : setLegend(true))} title="Legend">
+                  ?
+                </button>
+                <button
+                  aria-pressed={effects.reduced}
+                  onClick={() => effects.setMode(effects.reduced ? "full" : "reduced")}
+                  title={effects.reduced ? "Reduced effects on (tap for full effects)" : "Full effects (tap to reduce)"}
+                >
+                  {effects.reduced ? "Lite" : "FX"}
+                </button>
+              </div>
+            </div>
+            {legend && <BoardLegend onClose={hideLegend} />}
             {showResult && (
               <ResultCard
                 result={result}
@@ -191,7 +262,7 @@ export function RaidScreen({
             ) : practice ? (
               <>No defender yet: you&apos;re raiding <b>practice traps</b>. Reach the glowing door.</>
             ) : (
-              <>Reach the glowing door. Some traps are hidden.</>
+              <>Reach the glowing door. Your torch only lights a few tiles; some traps are hidden.</>
             )}
           </p>
         </div>
@@ -205,7 +276,7 @@ export function RaidScreen({
       </div>
 
       <Sheet open={panel === "info"} onClose={() => setPanel("none")} title="Room info" variant="drawer">
-        <RoomInfo chog={chog} room={raid.sight!.room} nativeLayer={nativeLayer} onNativeLayer={setNativeLayer} />
+        <RoomInfo chog={chog} room={room} nativeLayer={nativeLayer} onNativeLayer={setNativeLayer} />
       </Sheet>
       <Sheet open={panel === "howto"} onClose={() => setPanel("none")} title="How to play">
         <HowToPlay />

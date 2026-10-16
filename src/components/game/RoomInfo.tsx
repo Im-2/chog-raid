@@ -1,4 +1,4 @@
-import { GAME, TRAP_INFO, type Room, type Trait, type TrapType } from "@/engine";
+import { GAME, TRAP_INFO, type PublicRoom, type Room, type Trait, type TrapType } from "@/engine";
 import { NativeDefensePanel } from "./NativeDefense";
 import { RoomRecord } from "./RoomRecord";
 import { TrapIcon } from "./TrapIcon";
@@ -51,7 +51,7 @@ export function RoomInfo({
   onNativeLayer,
 }: {
   chog: ChogSummary;
-  room: Room;
+  room: Room | PublicRoom;
   nativeLayer?: boolean;
   onNativeLayer?: (on: boolean) => void;
 }) {
@@ -127,7 +127,11 @@ export function HowToPlay() {
           or the d-pad.
         </li>
         <li>
-          <b>Watch out:</b> spikes and teleporters are hidden. Guards patrol. Locked doors need their key.
+          <b>Watch out:</b> spikes and teleporters are hidden. Guards patrol (a red pulse marks where one steps next). Locked doors need their key.
+        </li>
+        <li>
+          <b>By torchlight:</b> you only see what your torch lights; explored tiles stay dim. Rarer Chogs are darker, tighter and have
+          built-in native defenses, and pay more points.
         </li>
         <li>
           <b>Hold a Chog?</b> Defend its room with traps. It fights for you while you&apos;re offline.

@@ -2,7 +2,7 @@
 
 import { chogName } from "@/lib/names";
 import { useEffect, useRef } from "react";
-import type { Move, Point, RaidEvent, RaidOutcome, Room, Trap } from "@/engine";
+import { guardAt, type Move, type Point, type RaidEvent, type RaidOutcome, type Room, type Trap } from "@/engine";
 import { playSfx, type Sfx } from "@/lib/sound";
 import { markFrame } from "../game/latency";
 import {
@@ -20,7 +20,12 @@ import {
   lightMask,
   torchGlow,
   drawTrap,
-  renderTileLayer,
+  drawTelegraph,
+  drawDoorUnlock,
+  createTileLayer,
+  paintTiles,
+  renderFogMask,
+  type TileLayer,
 } from "./draw";
 
 export type BoardProps = {
@@ -50,19 +55,36 @@ export type BoardProps = {
   label?: string;
   /** Highlight the room's built-in "Native defense" layer. */
   nativeLayer?: boolean;
+  /** Fog of war: only `seen` tiles are drawn; `lit` tiles are in torchlight, the rest dimmed. */
+  fog?: { seen: boolean[]; lit: number[] };
+  /** Camera zoom (1 = whole room). When set, the camera follows the raider. */
+  zoom?: number;
+  /** Low-end / reduced motion: no shake, flicker or shimmer, few particles, camera snaps. */
+  reduced?: boolean;
+  /** Patrol routes of the guards in `guards` and the current turn: their next step is telegraphed. */
+  threatRoutes?: Point[][];
+  turn?: number;
+  /** How many leading `guards` are native (defaults to the room's native guard count). */
+  nativeGuards?: number;
+  /** Called once if frames stay slow (below ~42 fps) for two seconds of animation. */
+  onSlow?: () => void;
 };
 
 type Particle = { x: number; y: number; vx: number; vy: number; life: number; max: number; color: string; size: number };
 type Floater = { x: number; y: number; text: string; color: string; born: number };
 
 const STEP_MS = 110;
+const UNLOCK_MS = 450;
 const adjacent = (a: Point, b: Point) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y) <= 1;
 
 export function Board(props: BoardProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const propsRef = useRef(props);
   propsRef.current = props;
-  const layerRef = useRef<{ room: Room; canvas: HTMLCanvasElement; native: number[] } | null>(null);
+  const layerRef = useRef<{ layer: TileLayer; room: Room | null; seen: boolean[] | undefined; native: number[] } | null>(null);
+  const fogRef = useRef<{ seen: boolean[]; lit: number[]; canvas: HTMLCanvasElement } | null>(null);
+  /** Last camera transform, so taps map to the right tile. */
+  const viewRef = useRef({ cx: 0, cy: 0, z: 1 });
   const dragRef = useRef<{ start: Point; startPx: { x: number; y: number }; over: Point; trap: boolean; swiped?: boolean } | null>(null);
 
   const anim = useRef({
@@ -85,6 +107,10 @@ export function Board(props: BoardProps) {
     pathRef: null as Point[] | null,
     particles: [] as Particle[],
     floaters: [] as Floater[],
+    cam: { x: 0, y: 0, z: 1, ready: false },
+    keysPrev: new Set<number>(),
+    unlocks: [] as { at: Point; start: number }[],
+    slow: { since: 0, frames: 0, fired: false, last: 0 },
   });
 
   useEffect(() => {
@@ -96,6 +122,7 @@ export function Board(props: BoardProps) {
 
     const sfx = (s: Sfx) => propsRef.current.sound && playSfx(s);
     const burst = (p: Point, color: string, n: number, speed = 160) => {
+      if (propsRef.current.reduced) n = Math.ceil(n / 5);
       for (let i = 0; i < n; i++) {
         const ang = Math.random() * Math.PI * 2;
         const v = speed * (0.4 + Math.random() * 0.8);
@@ -113,18 +140,21 @@ export function Board(props: BoardProps) {
     };
 
     const fire = (e: RaidEvent, now: number) => {
+      const calm = !!propsRef.current.reduced;
       switch (e.kind) {
         case "damage":
-          a.shakeUntil = now + 280;
-          a.shakeMag = 7;
-          a.flashUntil = now + 220;
-          a.floaters.push({ x: e.at.x * T + T / 2, y: e.at.y * T, text: `-${e.amount}`, color: COLORS.blood, born: now });
+          if (!calm) {
+            a.shakeUntil = now + 280;
+            a.shakeMag = 7;
+          }
+          a.flashUntil = now + (calm ? 120 : 220);
+          a.floaters.push({ x: e.at.x * T + T / 2, y: e.at.y * T, text: `-${e.amount} HP`, color: COLORS.blood, born: now });
           burst(e.at, COLORS.blood, 10, 120);
           sfx("hurt");
           break;
         case "key":
           burst(e.at, COLORS.gold, 28, 200);
-          a.floaters.push({ x: e.at.x * T + T / 2, y: e.at.y * T, text: "KEY!", color: COLORS.gold, born: now });
+          a.floaters.push({ x: e.at.x * T + T / 2, y: e.at.y * T, text: "+KEY", color: COLORS.gold, born: now });
           sfx("key");
           break;
         case "teleport":
@@ -138,8 +168,10 @@ export function Board(props: BoardProps) {
           sfx("door");
           break;
         case "bump":
-          a.shakeUntil = now + 90;
-          a.shakeMag = 2;
+          if (!calm) {
+            a.shakeUntil = now + 90;
+            a.shakeMag = 2;
+          }
           sfx("bump");
           break;
         case "breach":
@@ -156,8 +188,10 @@ export function Board(props: BoardProps) {
           break;
         case "defeated":
           a.deadAt = now;
-          a.shakeUntil = now + 450;
-          a.shakeMag = 10;
+          if (!calm) {
+            a.shakeUntil = now + 450;
+            a.shakeMag = 10;
+          }
           sfx("lose");
           break;
       }
@@ -184,15 +218,45 @@ export function Board(props: BoardProps) {
         now < a.flashUntil ||
         now - a.guardsStart < STEP_MS ||
         (a.victoryAt > 0 && now - a.victoryAt < 4000) ||
+        a.unlocks.length > 0 ||
+        (p.zoom !== undefined && Math.abs(a.cam.z - (p.zoom ?? 1)) > 0.01) ||
         dragRef.current !== null;
-      if (!active && now - a.lastDraw < idleMs) {
+      // Frame-time watchdog: only while something is animating.
+      if (active && p.onSlow && !a.slow.fired) {
+        const dt = a.slow.last ? now - a.slow.last : 16;
+        if (dt < 200) {
+          a.slow.frames++;
+          a.slow.since += dt;
+          if (a.slow.since > 2000) {
+            if (a.slow.since / a.slow.frames > 24) {
+              a.slow.fired = true;
+              p.onSlow();
+            }
+            a.slow.since = 0;
+            a.slow.frames = 0;
+          }
+        }
+      }
+      a.slow.last = now;
+      if (!active && (p.reduced ? a.lastDraw > 0 && p === a.lastProps : now - a.lastDraw < idleMs)) {
         raf = requestAnimationFrame(frame);
         return;
       }
       a.lastProps = p;
       a.lastDraw = now;
 
-      if (layerRef.current?.room !== room) layerRef.current = { room, canvas: renderTileLayer(room), native: nativeCells(room) };
+      // Static tile layer, offscreen: only newly explored tiles are painted.
+      if (!layerRef.current) layerRef.current = { layer: createTileLayer(room.size), room: null, seen: undefined, native: [] };
+      const L = layerRef.current;
+      if (L.room !== room || L.seen !== p.fog?.seen) {
+        paintTiles(L.layer, room, p.fog?.seen);
+        L.native = nativeCells(room).filter((i) => !p.fog || p.fog.seen[i]);
+        L.room = room;
+        L.seen = p.fog?.seen;
+      }
+      if (p.fog && (fogRef.current?.seen !== p.fog.seen || fogRef.current.lit !== p.fog.lit)) {
+        fogRef.current = { seen: p.fog.seen, lit: p.fog.lit, canvas: renderFogMask(room.size, p.fog.seen, p.fog.lit) };
+      }
 
       // The server corrected a predicted path (e.g. a hidden trap): rewind to where they differ.
       if (a.pathRef && a.pathRef !== path && a.shown > 0) {
@@ -218,6 +282,8 @@ export function Board(props: BoardProps) {
         a.victoryAt = 0;
         a.deadAt = 0;
         a.stalledAt = 0;
+        a.keysPrev = new Set(p.keysHeld ?? []);
+        a.unlocks = [];
         if (path.length) a.raider = { x: path[path.length - 1].x * T, y: path[path.length - 1].y * T };
       }
       if (a.shown < 0 && path.length) {
@@ -262,6 +328,16 @@ export function Board(props: BoardProps) {
         a.eventsSeen = events.length;
       }
 
+      // Doors whose key was just picked up swing open.
+      const held = p.keysHeld ?? [];
+      for (const k of held) {
+        if (a.keysPrev.has(k)) continue;
+        const d = p.traps[k];
+        if (d?.type === "lockdoor" && d.x >= 0 && !p.instant) a.unlocks.push({ at: { x: d.x, y: d.y }, start: now });
+      }
+      a.keysPrev = new Set(held);
+      a.unlocks = a.unlocks.filter((u) => now - u.start < UNLOCK_MS);
+
       // Guards tween between their previous and current positions.
       const guards = p.guards ?? [];
       if (a.guardsRef !== p.guards) {
@@ -283,8 +359,29 @@ export function Board(props: BoardProps) {
         const m = a.shakeMag * ((a.shakeUntil - now) / 300);
         ctx.translate((Math.random() - 0.5) * 2 * m, (Math.random() - 0.5) * 2 * m);
       }
-      ctx.drawImage(layerRef.current.canvas, 0, 0);
-      drawLiveTiles(ctx, room, t);
+      // Camera: follow the raider (or the exit on a breach), smoothly zooming.
+      if (p.zoom !== undefined) {
+        const won = p.outcome === "breach" && a.victoryAt > 0;
+        const z = Math.max(1, (p.zoom ?? 1) + (won ? 0.25 : 0));
+        const focus = won ? { x: room.exit.x * T + T / 2, y: room.exit.y * T + T / 2 } : { x: a.raider.x + T / 2, y: a.raider.y + T / 2 };
+        const half = W / (2 * z);
+        const tx = Math.max(half, Math.min(W - half, focus.x));
+        const ty = Math.max(half, Math.min(W - half, focus.y));
+        const k = p.reduced || !a.cam.ready ? 1 : 0.18;
+        a.cam = { x: a.cam.x + (tx - a.cam.x) * k, y: a.cam.y + (ty - a.cam.y) * k, z: a.cam.z + (z - a.cam.z) * k, ready: true };
+        const ch = W / (2 * a.cam.z);
+        a.cam.x = Math.max(ch, Math.min(W - ch, a.cam.x));
+        a.cam.y = Math.max(ch, Math.min(W - ch, a.cam.y));
+        ctx.translate(W / 2, W / 2);
+        ctx.scale(a.cam.z, a.cam.z);
+        ctx.translate(-a.cam.x, -a.cam.y);
+        viewRef.current = { cx: a.cam.x, cy: a.cam.y, z: a.cam.z };
+      } else {
+        viewRef.current = { cx: W / 2, cy: W / 2, z: 1 };
+      }
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(L.layer.canvas, 0, 0);
+      drawLiveTiles(ctx, room, t, p.fog?.seen, p.reduced);
       drawEndpoint(ctx, room.entrance, "in", t);
       drawEndpoint(ctx, room.exit, "out", t);
 
@@ -319,14 +416,27 @@ export function Board(props: BoardProps) {
       }
 
       p.traps.forEach((trap, i) => drawTrap(ctx, trap, t, { keyTaken: p.keysHeld?.includes(i) }));
-      if (p.nativeLayer) drawNativeLayer(ctx, room, layerRef.current.native, t);
+      if (p.nativeLayer) drawNativeLayer(ctx, room, L.native, t);
+      for (const u of a.unlocks) drawDoorUnlock(ctx, u.at, Math.min(1, (now - u.start) / UNLOCK_MS));
+
+      // Telegraph: pulse a tile just before it hurts (a guard's next step, a known spike) when the
+      // raider is right next to it.
+      if (path.length && p.outcome === "incomplete" && !a.seg) {
+        const at = path[path.length - 1];
+        const near = (q: Point) => Math.abs(q.x - at.x) + Math.abs(q.y - at.y) <= 1;
+        for (const route of p.threatRoutes ?? []) {
+          const next = guardAt(route, (p.turn ?? 0) + 1);
+          if (near(next)) drawTelegraph(ctx, next, t);
+        }
+        for (const tr of p.traps) if (tr.type === "spike" && near(tr) && (tr.x !== at.x || tr.y !== at.y)) drawTelegraph(ctx, tr, t, COLORS.ember);
+      }
       // Native guards come first in the guard list (native traps precede the owner's).
-      const nativeGuards = room.native?.traps.filter((g) => g.type === "guard").length ?? 0;
+      const nativeGuards = p.nativeGuards ?? room.native?.traps.filter((g) => g.type === "guard").length ?? 0;
       a.guardsTo.forEach((g, i) => {
         const f = a.guardsFrom[i] ?? g;
         const gx = (f.x + (g.x - f.x) * gk) * T;
         const gy = (f.y + (g.y - f.y) * gk) * T;
-        drawGuard(ctx, gx, gy);
+        drawGuard(ctx, gx, gy, p.reduced ? 0 : t);
         if (i < nativeGuards) drawNativeMark(ctx, room, gx, gy);
       });
 
@@ -347,14 +457,26 @@ export function Board(props: BoardProps) {
         } else {
           drawRaider(ctx, a.raider.x, a.raider.y, t);
         }
+        // Fog of war (soft-edged, 1px per tile scaled up), then the pre-rendered torchlight mask.
         const cx = a.raider.x + T / 2;
         const cy = a.raider.y + T / 2;
-        ctx.drawImage(lightMask(room.tier?.lightRadius ?? 5, room.size), cx - W, cy - W, W * 2, W * 2);
+        ctx.imageSmoothingEnabled = true;
+        if (fogRef.current && p.fog) ctx.drawImage(fogRef.current.canvas, 0, 0, W, W);
+        const flicker = p.reduced ? 1 : 1 + 0.03 * Math.sin(t * 13) + 0.02 * Math.sin(t * 7.3);
+        const M = W * flicker;
+        ctx.drawImage(lightMask(room.tier?.lightRadius ?? 5, room.size), cx - M, cy - M, M * 2, M * 2);
         ctx.save();
         ctx.globalCompositeOperation = "lighter";
         ctx.globalAlpha = dead ? 0.6 : 1;
-        ctx.drawImage(torchGlow(), cx - T * 3.2, cy - T * 3.2, T * 6.4, T * 6.4);
+        ctx.drawImage(torchGlow(), cx - T * 3.2 * flicker, cy - T * 3.2 * flicker, T * 6.4 * flicker, T * 6.4 * flicker);
         ctx.restore();
+        ctx.imageSmoothingEnabled = false;
+        // The exit door is a beacon: it glows through the dark so the goal is always clear.
+        if (p.fog) {
+          ctx.globalAlpha = 0.55 + 0.25 * Math.sin((p.reduced ? 0 : t) * 3);
+          drawEndpoint(ctx, room.exit, "out", t);
+          ctx.globalAlpha = 1;
+        }
       }
 
       if (p.highlight) {
@@ -442,15 +564,25 @@ export function Board(props: BoardProps) {
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
+    // Dev only: lets a benchmark drive frames directly (a hidden tab pauses requestAnimationFrame).
+    if (process.env.NODE_ENV !== "production") (window as unknown as { __boardFrame?: (now: number) => void }).__boardFrame = (now) => {
+      cancelAnimationFrame(raf);
+      frame(now);
+      cancelAnimationFrame(raf);
+    };
     return () => cancelAnimationFrame(raf);
   }, []);
 
   const toTile = (e: React.PointerEvent<HTMLCanvasElement>): Point => {
     const r = e.currentTarget.getBoundingClientRect();
     const size = props.room.size;
+    const W = size * T;
+    const v = viewRef.current;
+    const wx = (((e.clientX - r.left) / r.width) * W - W / 2) / v.z + v.cx;
+    const wy = (((e.clientY - r.top) / r.height) * W - W / 2) / v.z + v.cy;
     return {
-      x: Math.max(0, Math.min(size - 1, Math.floor(((e.clientX - r.left) / r.width) * size))),
-      y: Math.max(0, Math.min(size - 1, Math.floor(((e.clientY - r.top) / r.height) * size))),
+      x: Math.max(0, Math.min(size - 1, Math.floor(wx / T))),
+      y: Math.max(0, Math.min(size - 1, Math.floor(wy / T))),
     };
   };
   const trapAt = (p: Point) =>

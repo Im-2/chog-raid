@@ -144,14 +144,20 @@ function TestRaid({ room, traps, sound, onDone, onExit }: { room: Room; traps: T
           traps={raid.visibleTraps}
           keysHeld={raid.keysHeld}
           path={result.path}
-          guards={result.guards}
+          guards={raid.sight!.guards}
           events={result.events}
           outcome={result.outcome}
           sound={sound}
+          fog={{ seen: raid.sight!.seen, lit: raid.sight!.lit }}
+          threatRoutes={raid.sight!.guardRoutes}
+          turn={result.stepsProcessed}
+          nativeGuards={raid.visibleTraps.slice(0, raid.sight!.nativeTraps).filter((t) => t.type === "guard").length}
           onSwipe={move}
         />
       </div>
-      <p className={gameStyles.ticker}>{over ? causeOfEnd(result) : "Test raid: play your own room like a raider would. Hidden traps stay hidden."}</p>
+      <p className={gameStyles.ticker}>
+        {over ? causeOfEnd(result) : "Test raid: play your own room like a raider would, by torchlight. Hidden traps stay hidden."}
+      </p>
       <div className={styles.testControls}>
         <DPad onMove={move} disabled={over} />
         <div className={styles.stack}>

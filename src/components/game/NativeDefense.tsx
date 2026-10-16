@@ -1,4 +1,4 @@
-import type { Point, Room } from "@/engine";
+import type { Point, PublicRoom, Room } from "@/engine";
 import { difficultyOfRoom } from "@/lib/difficulty";
 import { DifficultyBadge } from "../ui/DifficultyBadge";
 import styles from "./game.module.css";
@@ -17,14 +17,26 @@ export function isNativeAt(room: Room, p: Point): boolean {
 }
 
 /** The labeled "Native defense" layer: what the room's tier built in, separate from owner traps. */
-export function NativeDefensePanel({ room, highlight, onHighlight }: { room: Room; highlight?: boolean; onHighlight?: (on: boolean) => void }) {
+/** Counts of a room's native pieces, from a full room or a public (fogged) one. */
+function nativeCounts(room: Room | PublicRoom) {
   const n = room.native;
-  const guards = n.traps.filter((t) => t.type === "guard").length;
-  const doors = n.traps.filter((t) => t.type === "lockdoor").length;
+  if ("counts" in n) return n.counts;
+  return {
+    walls: n.walls.length,
+    hazards: n.hazards.length,
+    moat: n.moat.length,
+    guards: n.traps.filter((t) => t.type === "guard").length,
+    doors: n.traps.filter((t) => t.type === "lockdoor").length,
+  };
+}
+
+export function NativeDefensePanel({ room, highlight, onHighlight }: { room: Room | PublicRoom; highlight?: boolean; onHighlight?: (on: boolean) => void }) {
+  const n = room.native;
+  const { guards, doors, walls, hazards, moat } = nativeCounts(room);
   const rows: [number, string][] = [
-    [n.walls.length, "extra walls (tighter corridors)"],
-    [n.hazards.length, "ember tiles"],
-    [n.moat.length, "moat tiles of slow water"],
+    [walls, "extra walls (tighter corridors)"],
+    [hazards, "ember tiles"],
+    [moat, "moat tiles of slow water"],
     [guards, guards === 1 ? "guard on patrol" : "guards on patrol"],
     [doors, doors === 1 ? "locked door, key far away" : "locked doors, keys far away"],
   ];
@@ -52,7 +64,7 @@ export function NativeDefensePanel({ room, highlight, onHighlight }: { room: Roo
         <p className="small muted">Common rooms have no built-in defenses: the owner&apos;s traps are all there is.</p>
       )}
       <p className="small muted">
-        Built in by the {room.tier.name} tier: always on, and the owner can&apos;t remove them. Raiders get <b>{room.rules.raiderHp}</b> HP and{" "}
+        Built in by the {room.tier.name} tier{"counts" in room.native ? " (hidden in the dark until you find them)" : ""}: always on, and the owner can&apos;t remove them. Raiders get <b>{room.rules.raiderHp}</b> HP and{" "}
         <b>{room.rules.maxMoves}</b> moves here.
       </p>
       {onHighlight && any && (
