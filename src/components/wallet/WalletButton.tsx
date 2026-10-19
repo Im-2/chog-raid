@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { ChogIcon } from "../chog/ChogIcon";
+import { MenuAlerts } from "../progress/NavChips";
+import { usePlayer } from "../progress/bits";
 import { fmtChogFull, useChog } from "../chog/useChog";
 import { demoSignIn, shortAddress, signIn, signOut, useSession } from "./session";
 import styles from "./wallet.module.css";
@@ -11,6 +13,9 @@ export function WalletButton({ compact = false }: { compact?: boolean }) {
   const s = useSession();
   const [open, setOpen] = useState(false);
   const { chog } = useChog();
+  const me = usePlayer();
+  const unread = me?.unread ?? 0;
+  const streak = me?.player?.streak.current ?? 0;
 
   if (s.status === "loading") return <span className={`btn ${styles.placeholder}`} aria-hidden />;
 
@@ -33,7 +38,9 @@ export function WalletButton({ compact = false }: { compact?: boolean }) {
     <span className={styles.wrap}>
       <button className={`btn ${styles.chip}`} onClick={() => setOpen((o) => !o)} aria-expanded={open}>
         <i className={styles.dot} aria-hidden />
-        <span className="num">{shortAddress(s.address)}</span>
+        <span className={`num ${styles.addrFull}`}>{shortAddress(s.address)}</span>
+        <span className={`num ${styles.addrShort}`}>{s.address.slice(-4)}</span>
+        {unread > 0 && <span className={styles.unread} aria-label={`${unread} new raid alerts`} />}
       </button>
       {open && (
         <div className={styles.menu} role="menu">
@@ -54,9 +61,15 @@ export function WalletButton({ compact = false }: { compact?: boolean }) {
               </span>
             </a>
           )}
+          {me?.player && (
+            <a role="menuitem" href={`/u/${encodeURIComponent(me.player.id)}`}>
+              Profile · {streak}-day streak
+            </a>
+          )}
           <a role="menuitem" href="/defend">
             My Chogs
           </a>
+          <MenuAlerts unread={unread} />
           <button
             role="menuitem"
             onClick={() => {

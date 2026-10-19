@@ -2,6 +2,7 @@
    Only used by DesktopRaid (mouse + keyboard devices); phones keep game.module.css's layout. */
 
 .screen {
+  font-family: var(--font-pixel-body);
   position: fixed;
   inset: 0;
   width: 100vw;

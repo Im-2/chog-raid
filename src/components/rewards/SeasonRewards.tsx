@@ -45,7 +45,7 @@ export function SeasonRewards({ compact = false }: { compact?: boolean }) {
   const half = Math.round(d.split.wardens * 100);
 
   return (
-    <section className={styles.panel} aria-labelledby="season-rewards-title">
+    <section className={styles.panel} aria-labelledby="season-rewards-title" data-reveal>
       <header className={styles.head}>
         <h2 id="season-rewards-title" className={styles.title}>
           <ChogIcon size={22} /> Season Rewards

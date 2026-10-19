@@ -9,6 +9,17 @@
 }
 .chip {
   gap: 8px;
+  white-space: nowrap;
+  position: relative;
+}
+.unread {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 12px;
+  height: 12px;
+  background: var(--blood);
+  border: 2px solid var(--ink);
 }
 .chip :global(.num) {
   font-size: 13px;
@@ -24,7 +35,8 @@
   right: 0;
   top: calc(100% + 6px);
   z-index: 30;
-  min-width: 160px;
+  min-width: 220px;
+  max-width: calc(100vw - 24px);
   display: flex;
   flex-direction: column;
   background: var(--panel);
@@ -75,4 +87,29 @@
 .chogRow small {
   font-size: 12px;
   color: var(--muted);
+}
+
+.addrShort {
+  display: none;
+}
+@media (max-width: 560px) {
+  .addrFull {
+    display: none;
+  }
+  .addrShort {
+    display: inline;
+  }
+  .chip {
+    padding-left: 10px;
+    padding-right: 10px;
+    gap: 6px;
+  }
+  .menu {
+    position: fixed;
+    top: 64px;
+    right: 12px;
+    left: 12px;
+    min-width: 0;
+    max-width: none;
+  }
 }

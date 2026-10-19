@@ -4,7 +4,7 @@ import { chogName } from "@/lib/names";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useSession } from "../wallet/session";
-import { refreshPlayer, Streak, usePlayer } from "./bits";
+import { refreshPlayer, usePlayer } from "./bits";
 import styles from "./progress.module.css";
 
 export type AlertT = {
@@ -50,10 +50,10 @@ export function AlertList({ alerts, onNavigate }: { alerts: AlertT[]; onNavigate
   );
 }
 
-function AlertBell({ unread }: { unread: number }) {
+/** Raid alerts inside the wallet menu: a row with the unread count that expands into the list. */
+export function MenuAlerts({ unread }: { unread: number }) {
   const [open, setOpen] = useState(false);
   const [alerts, setAlerts] = useState<AlertT[] | null>(null);
-  const ref = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -64,28 +64,24 @@ function AlertBell({ unread }: { unread: number }) {
         if (j.alerts.some((a: AlertT) => a.unread)) void fetch("/api/alerts", { method: "POST" }).then(() => refreshPlayer());
       })
       .catch(() => setAlerts([]));
-    const close = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
   }, [open]);
 
   return (
-    <span ref={ref} style={{ position: "relative" }}>
-      <button className={styles.chip} onClick={() => setOpen((o) => !o)} aria-label={`Raid alerts${unread ? `, ${unread} new` : ""}`} aria-expanded={open}>
-        <i className={styles.bell} aria-hidden />
-        {unread > 0 && <span className={`${styles.count} num`}>{unread > 9 ? "9+" : unread}</span>}
+    <>
+      <button role="menuitem" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+        <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          Raid alerts {unread > 0 && <span className={`${styles.menuCount} num`}>{unread > 9 ? "9+" : unread}</span>}
+        </span>
       </button>
-      {open && (
-        <div className={styles.popover} role="dialog" aria-label="Raid alerts">
-          <h3>Raids on your Chogs</h3>
-          {alerts ? <AlertList alerts={alerts} onNavigate={() => setOpen(false)} /> : <p className="small">Loading…</p>}
-        </div>
-      )}
-    </span>
+      {open && <div className={styles.menuAlerts}>{alerts ? <AlertList alerts={alerts} /> : <p className="small">Loading…</p>}</div>}
+    </>
   );
 }
 
-/** Streak flame (links to your profile) and, for signed-in holders, the alert bell. */
+/**
+ * Keeps the player's progress fresh (polls for raids on your Chogs) and shows the "new raid" toast.
+ * The streak and alerts themselves live in the wallet menu.
+ */
 export function NavChips() {
   const session = useSession();
   const me = usePlayer();
@@ -109,20 +105,11 @@ export function NavChips() {
     }
     lastUnread.current = u;
   }, [me?.unread]);
-  const p = me?.player;
-  return (
+  return toast ? (
     <span className={styles.chips}>
-      {p && (
-        <Link href={`/u/${encodeURIComponent(p.id)}`} className={styles.chip} title={`${p.streak.current}-day raid streak · your profile`}>
-          <Streak days={p.streak.current} hot={p.streak.activeToday} />
-        </Link>
-      )}
-      {session.address && <AlertBell unread={me?.unread ?? 0} />}
-      {toast && (
-        <span className={styles.toast} role="status">
-          {toast} <Link href="/defend">See it</Link>
-        </span>
-      )}
+      <span className={styles.toast} role="status">
+        {toast} <Link href="/defend">See it</Link>
+      </span>
     </span>
-  );
+  ) : null;
 }

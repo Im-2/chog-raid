@@ -32,7 +32,7 @@ export function PerkList({ perks, signedIn }: { perks: PerkStatus[]; signedIn: b
   return (
     <ul className={styles.perks}>
       {perks.map((p) => (
-        <li key={p.id} data-locked={!p.unlocked || undefined}>
+        <li key={p.id} data-locked={!p.unlocked || undefined} data-lift>
           <ChogIcon size={18} dim={!p.unlocked} />
           <div>
             <p className={styles.perkTitle}>
@@ -116,7 +116,7 @@ export function ChogPanel() {
   const { chog, failed } = useChog();
   if (failed || (chog && !chog.enabled)) return null;
   return (
-    <section className={styles.panel} aria-labelledby="chog-panel-title">
+    <section className={styles.panel} aria-labelledby="chog-panel-title" data-reveal>
       <div className={styles.intro}>
         <h2 id="chog-panel-title" className={styles.title}>
           <ChogIcon size={26} /> $CHOG

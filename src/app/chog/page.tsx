@@ -39,12 +39,12 @@ export default async function ChogPage() {
           ever requires $CHOG.
         </p>
 
-        <section className={styles.card} aria-labelledby="your-chog">
+        <section data-reveal className={styles.card} aria-labelledby="your-chog">
           <h2 id="your-chog">Your $CHOG</h2>
           <ChogStatus />
         </section>
 
-        <section className={styles.card} aria-labelledby="does">
+        <section data-reveal className={styles.card} aria-labelledby="does">
           <h2 id="does">What $CHOG does in the game</h2>
           <p>
             <b>Hold it for perks.</b> Your wallet&apos;s $CHOG balance unlocks cosmetic and convenience perks, in tiers:
@@ -62,7 +62,7 @@ export default async function ChogPage() {
           </p>
         </section>
 
-        <section className={styles.card} aria-labelledby="real">
+        <section data-reveal className={styles.card} aria-labelledby="real">
           <h2 id="real">What is real on-chain</h2>
           <div className={styles.cols}>
             <div className={styles.real}>
@@ -95,7 +95,7 @@ export default async function ChogPage() {
           </div>
         </section>
 
-        <section className={styles.card} id="rules" aria-labelledby="rules-title">
+        <section data-reveal className={styles.card} id="rules" aria-labelledby="rules-title">
           <h2 id="rules-title">Rules</h2>
 
           <h3 className={styles.h3}>Season Rewards</h3>
@@ -169,7 +169,7 @@ export default async function ChogPage() {
           </ul>
         </section>
 
-        <section className={styles.card} aria-labelledby="contract">
+        <section data-reveal className={styles.card} aria-labelledby="contract">
           <h2 id="contract">The token</h2>
           <p>
             $CHOG is an <span className="num">ERC-20</span> on {env.chainName} (chain <span className="num">{env.chainId || 143}</span>).

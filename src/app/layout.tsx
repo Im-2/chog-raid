@@ -1,9 +1,12 @@
 import type { Metadata, Viewport } from "next";
-import { Pixelify_Sans, Silkscreen } from "next/font/google";
+import { DM_Sans, Pixelify_Sans, Silkscreen } from "next/font/google";
+import { RevealController } from "@/components/ui/RevealController";
 import { FireCursor } from "@/components/ui/FireCursor";
 import "./globals.css";
 
 const pixelify = Pixelify_Sans({ subsets: ["latin"], variable: "--font-pixelify", display: "swap" });
+// Readable body font: every paragraph, rule, table and tooltip. The pixel fonts are for the logo, headings, buttons, badges, numbers and short labels.
+const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-dm", display: "swap" });
 // Blocky digits that never read as letters (Pixelify's 5/S and 2/8 are too close at small sizes).
 const silkscreen = Silkscreen({ subsets: ["latin"], weight: ["400", "700"], variable: "--font-silkscreen", display: "swap" });
 
@@ -32,10 +35,11 @@ export const viewport: Viewport = { width: "device-width", initialScale: 1, them
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${pixelify.variable} ${silkscreen.variable}`}>
+    <html lang="en" className={`${pixelify.variable} ${silkscreen.variable} ${dmSans.variable}`}>
       <body>
         {children}
         <FireCursor />
+        <RevealController />
       </body>
     </html>
   );

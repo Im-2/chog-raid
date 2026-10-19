@@ -23,7 +23,9 @@
   --legend-carved: #8c8070;
 
   --font-pixel: var(--font-pixelify), "Courier New", monospace;
-  --font-body: var(--font-pixelify), ui-sans-serif, system-ui, sans-serif;
+  --font-body: var(--font-dm), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* Pixel look for text that must keep it (the in-game HUD). */
+  --font-pixel-body: var(--font-pixelify), ui-sans-serif, system-ui, sans-serif;
   --font-num: var(--font-silkscreen), "Courier New", monospace;
   color-scheme: dark;
 }
@@ -39,8 +41,8 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-body);
-  font-size: 16px;
-  line-height: 1.45;
+  font-size: 17px;
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -79,7 +81,8 @@ h4 {
   color: var(--muted);
 }
 .small {
-  font-size: 14px;
+  font-size: 15px;
+  line-height: 1.55;
 }
 
 /* Chunky pixel buttons */
@@ -240,4 +243,25 @@ html[data-desk-game],
 html[data-desk-game] body {
   overflow: hidden;
   height: 100dvh;
+}
+
+/* ---------- Scroll reveal (RevealController): opacity + transform only ---------- */
+html[data-reveal] [data-r] {
+  transition:
+    opacity 0.5s ease-out var(--rd, 0ms),
+    transform 0.5s ease-out var(--rd, 0ms);
+}
+html[data-reveal] [data-r]:not([data-in]) {
+  opacity: 0;
+  transform: translate3d(0, 22px, 0);
+}
+/* Gentle lift on desktop hover for cards (room cards have their own). */
+@media (hover: hover) and (pointer: fine) {
+  [data-lift] {
+    transition: transform 0.18s ease-out, box-shadow 0.18s ease-out, border-color 0.18s;
+  }
+  [data-lift]:hover {
+    transform: translate3d(0, -3px, 0);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4);
+  }
 }

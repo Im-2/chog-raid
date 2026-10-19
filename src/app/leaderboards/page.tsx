@@ -112,7 +112,7 @@ export default async function Leaderboards() {
       <SiteNav />
       <main className="container">
         <h1 className={styles.title}>Leaderboards</h1>
-        <div className={styles.season}>
+        <div className={styles.season} data-reveal>
           <div>
             <p className={styles.seasonName}>Season {boards.season + 1}</p>
             <p className="small muted" style={{ margin: 0 }}>
@@ -127,7 +127,10 @@ export default async function Leaderboards() {
           </div>
         </div>
 
-        <SeasonRewards />
+        {/* The panel carries its own side margin on phones; cancel it inside the page container. */}
+        <div className={styles.rewardsWrap}>
+          <SeasonRewards />
+        </div>
 
         <Tabs
           tabs={[

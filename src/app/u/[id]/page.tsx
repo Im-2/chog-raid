@@ -96,7 +96,7 @@ export default async function Profile({ params }: Props) {
         </section>
 
         {showChog && (
-          <section className={chogStyles.card} aria-labelledby="profile-chog">
+          <section data-reveal className={chogStyles.card} aria-labelledby="profile-chog">
             <h2 id="profile-chog" className={styles.h2} style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <ChogIcon size={22} /> $CHOG
             </h2>

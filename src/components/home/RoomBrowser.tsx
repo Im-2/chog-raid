@@ -76,7 +76,7 @@ export function RoomBrowser() {
 
   return (
     <div className={styles.browser}>
-      <div className={styles.toolbar}>
+      <div className={styles.toolbar} data-reveal>
         <h2 className={styles.h2}>
           The dungeon{" "}
           {progress && (
@@ -135,7 +135,7 @@ export function RoomBrowser() {
         </p>
       )}
 
-      <div className={styles.grid} aria-busy={state.status === "loading"}>
+      <div className={styles.grid} aria-busy={state.status === "loading"} data-reveal-group>
         {firstLoad &&
           Array.from({ length: 12 }, (_, i) => (
             <div key={i} className={`${styles.card} ${styles.cardSkeleton}`} aria-hidden>

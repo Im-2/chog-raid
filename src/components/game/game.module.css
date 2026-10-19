@@ -1,5 +1,6 @@
 /* ---------- Full-screen raid layout ---------- */
 .screen {
+  font-family: var(--font-pixel-body);
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
