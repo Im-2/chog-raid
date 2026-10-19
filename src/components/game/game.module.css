@@ -798,3 +798,11 @@
     margin: 4px 0 0;
   }
 }
+
+/* Result card on the desktop raid screen: a little roomier, centered over the whole game. */
+.resultDesk {
+  width: min(440px, 100%);
+}
+.resultDesk kbd {
+  margin-left: 6px;
+}

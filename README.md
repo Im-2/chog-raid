@@ -16,7 +16,9 @@ npm run dev
 
 Open http://localhost:3000.
 
-- **Raid a room**: walk from the green entrance to the glowing exit door with arrow keys / WASD, swipes, or the d-pad. Rooms without a defender use clearly labeled practice traps, so there is always something to dodge.
+- **Raid a room**: walk from the green entrance to the glowing exit door. Rooms without a defender use clearly labeled practice traps, so there is always something to dodge.
+  - **Desktop** (mouse and keyboard): the room fills the window and the HUD floats over it. Arrow keys / WASD to move (hold to keep going), `R` restart, `M` minimap, `F` fullscreen, `Esc` menu (effects, zoom, room info, legend), `?` help, mouse wheel to zoom; after a raid `Enter` try again, `N` next room, `K` keep going.
+  - **Phones and tablets**: swipes or the on-screen d-pad. The layout is chosen by `(hover: hover) and (pointer: fine)`, not by screen width.
 - **Defend my Chog**: place traps in your Chog's slots, test the room yourself, and replay raids from the raid log.
 
 - **Atlas** (`/atlas`): a zoomable, pannable canvas map of all 1,969 rooms, colored by activity (recent, heavily raided, open, defended, cleared by you) with filters, a minimap, pulses for fresh raids, a live activity feed and a preview card per room. Art streams in as you zoom.

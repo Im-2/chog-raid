@@ -15,6 +15,8 @@ import { BoardLegend, Hud } from "./Hud";
 import { ResultCard } from "./ResultCard";
 import { HowToPlay, RoomInfo, type ChogSummary } from "./RoomInfo";
 import { useServerRaid } from "./useServerRaid";
+import { DesktopRaid } from "./DesktopRaid";
+import { useDesktopPointer } from "@/lib/useDesktop";
 import { LatencyReadout } from "./LatencyReadout";
 import { Badges, type BadgeT } from "../progress/bits";
 import styles from "./game.module.css";
@@ -70,6 +72,8 @@ export function RaidScreen({
   const [zoom, setZoom] = useState(1);
   const [legend, setLegend] = useState(false);
   const effects = useEffectsMode();
+  // Mouse + keyboard devices get the full-window layout; touch devices keep this one.
+  const desk = useDesktopPointer();
   const sight = raid.sight;
 
   useEffect(() => {
@@ -117,6 +121,7 @@ export function RaidScreen({
   }, [reset]);
 
   useEffect(() => {
+    if (desk !== false) return; // desktop has its own key handling (DesktopRaid)
     const onKey = (e: KeyboardEvent) => {
       if (panel !== "none" || e.metaKey || e.ctrlKey || e.altKey) return;
       const m = KEYS[e.key];
@@ -129,9 +134,27 @@ export function RaidScreen({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [move, again, panel, raid.movesUsed]);
+  }, [desk, move, again, panel, raid.movesUsed]);
 
   const last = result.events.at(-1);
+
+  if (desk === null) return <div className={styles.screen} />; // not known yet (server render)
+  if (desk) {
+    return (
+      <DesktopRaid
+        room={room}
+        chog={chog}
+        daily={daily}
+        defenderBadges={defenderBadges}
+        raid={raid}
+        effects={effects}
+        sound={sound}
+        setSound={setSound}
+        showResult={showResult}
+        again={again}
+      />
+    );
+  }
 
   return (
     <div className={styles.screen}>

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { Point, RaidResult } from "@/engine";
 import { chogName } from "@/lib/names";
@@ -32,6 +33,7 @@ export function ResultCard({
   practice,
   raidId,
   onKeepGoing,
+  desk,
 }: {
   result: RaidResult;
   movesUsed: number;
@@ -43,6 +45,8 @@ export function ResultCard({
   raidId?: string | null;
   /** Out of moves with "Keep going" still available. */
   onKeepGoing?: () => void;
+  /** Desktop: keyboard shortcuts (Enter try again, N next room, K keep going, D defend) and a roomier card. */
+  desk?: boolean;
 }) {
   const won = result.outcome === "breach";
   const [reward, setReward] = useState<Reward | null>(null);
@@ -62,6 +66,24 @@ export function ResultCard({
       cancelled = true;
     };
   }, [raidId]);
+
+  const router = useRouter();
+  const nextId = reward?.next?.tokenId;
+  useEffect(() => {
+    if (!desk) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const k = e.key.toLowerCase();
+      if (k === "enter") onAgain();
+      else if (k === "n") router.push(nextId ? `/room/${nextId}` : "/raid");
+      else if (k === "k" && onKeepGoing) onKeepGoing();
+      else if (k === "d") router.push(`/room/${tokenId}/defend`);
+      else return;
+      e.preventDefault();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [desk, onAgain, onKeepGoing, nextId, router, tokenId]);
 
   const name = chogName(tokenId);
   const end = result.endAt;
@@ -84,7 +106,7 @@ export function ResultCard({
 
   return (
     <div className={styles.resultWrap}>
-      <div className={styles.result} data-won={won || undefined} data-outcome={outcome} role="dialog" aria-label={TITLE[outcome]}>
+      <div className={`${styles.result} ${desk ? styles.resultDesk : ""}`} data-won={won || undefined} data-outcome={outcome} role="dialog" aria-label={TITLE[outcome]}>
         <p className={styles.resultKicker}>
           <span className="num">{name}</span>
           {practice ? " · practice traps" : ""}
@@ -146,9 +168,12 @@ export function ResultCard({
 
         {onKeepGoing && (
           <div className={styles.keepGoing}>
-            <button className="btn primary" onClick={onKeepGoing} autoFocus>
-              Keep going: +{EXTRA_MOVES.extend} moves
-            </button>
+            {!desk && (
+              <button className="btn primary" onClick={onKeepGoing} autoFocus>
+                Keep going: +{EXTRA_MOVES.extend} moves
+              </button>
+            )}
+            {desk && <p className="small" style={{ margin: 0 }}><b>Out of moves?</b> Press <kbd>K</kbd> to keep going: +{EXTRA_MOVES.extend} moves.</p>}
             <p className="small muted">
               Once per raid. A clear after this pays {EXTRA_MOVES.assistedPointsMultiplier * 100}% points and doesn&apos;t count for
               fastest clears or the daily board.
@@ -156,7 +181,26 @@ export function ResultCard({
           </div>
         )}
 
-        <div className={styles.resultActions}>
+        {desk && (
+          <div className={styles.resultActions}>
+            {onKeepGoing && (
+              <button className="btn primary" onClick={onKeepGoing}>
+                Keep going <kbd>K</kbd>
+              </button>
+            )}
+            <button className={onKeepGoing ? "btn" : "btn primary"} onClick={onAgain}>
+              Try again <kbd>Enter</kbd>
+            </button>
+            <Link className="btn" href={next ? `/room/${next.tokenId}` : "/raid"} prefetch={false}>
+              Next room <kbd>N</kbd>
+            </Link>
+            <Link className="btn" href={`/room/${tokenId}/defend`}>
+              Defend this Chog <kbd>D</kbd>
+            </Link>
+          </div>
+        )}
+
+        {!desk && <div className={styles.resultActions}>
           {won && next ? (
             <Link className="btn primary" href={`/room/${next.tokenId}`} autoFocus>
               Next room
@@ -183,7 +227,7 @@ export function ResultCard({
           <Link className="btn" href={`/room/${tokenId}/defend`}>
             Defend this Chog
           </Link>
-        </div>
+        </div>}
         {next && (
           <p className={styles.nextHint}>
             Next: <span className="num">{next.name}</span> · {next.reason}

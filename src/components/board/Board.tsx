@@ -65,6 +65,12 @@ export type BoardProps = {
   known?: boolean[];
   /** Camera zoom (1 = whole room). When set, the camera follows the raider. */
   zoom?: number;
+  /**
+   * Desktop mode: the canvas fills its container (any aspect ratio) at device resolution, and the
+   * camera follows the raider at an integer pixel scale, so pixels stay crisp. `zoomStep` zooms in
+   * or out from the automatic scale. Phones don't use this.
+   */
+  viewport?: { zoomStep: number; vignette?: boolean };
   /** Low-end / reduced motion: no shake, flicker or shimmer, few particles, camera snaps. */
   reduced?: boolean;
   /** Patrol routes of the guards in `guards` and the current turn: their next step is telegraphed. */
@@ -79,6 +85,21 @@ export type BoardProps = {
 type Particle = { x: number; y: number; vx: number; vy: number; life: number; max: number; color: string; size: number };
 type Floater = { x: number; y: number; text: string; color: string; born: number };
 
+/** Largest canvas (in device pixels) a desktop viewport renders, so huge or 4K windows stay fast. */
+const MAX_VIEWPORT_PIXELS = 3_600_000;
+
+/**
+ * Integer scale (device px per world px) for a desktop viewport. Automatic: the room's width fills
+ * the window when it can, but never fewer than 8 tiles tall. `step` zooms in or out from there;
+ * the smallest scale shows the whole room.
+ */
+export function deskScale(cw: number, ch: number, size: number, step: number): number {
+  const auto = Math.max(1, Math.round(Math.min(Math.max(cw / size, ch / size), ch / 8) / T));
+  const whole = Math.max(1, Math.floor(Math.min(cw, ch) / size / T));
+  const max = Math.max(auto, Math.floor(ch / 5 / T));
+  return Math.max(whole, Math.min(max, auto + step));
+}
+
 const STEP_MS = 110;
 const UNLOCK_MS = 450;
 const adjacent = (a: Point, b: Point) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y) <= 1;
@@ -90,7 +111,8 @@ export function Board(props: BoardProps) {
   const layerRef = useRef<{ layer: TileLayer; room: Room | null; seen: boolean[] | undefined; native: number[] } | null>(null);
   const fogRef = useRef<{ seen: boolean[]; lit: number[]; canvas: HTMLCanvasElement } | null>(null);
   /** Last camera transform, so taps map to the right tile. */
-  const viewRef = useRef({ cx: 0, cy: 0, z: 1 });
+  const viewRef = useRef({ cx: 0, cy: 0, z: 1, cw: 640, ch: 640 });
+  const vignetteRef = useRef<{ w: number; h: number; canvas: HTMLCanvasElement } | null>(null);
   const dragRef = useRef<{ start: Point; startPx: { x: number; y: number }; over: Point; trap: boolean; swiped?: boolean } | null>(null);
 
   const anim = useRef({
@@ -114,6 +136,7 @@ export function Board(props: BoardProps) {
     particles: [] as Particle[],
     floaters: [] as Floater[],
     cam: { x: 0, y: 0, z: 1, ready: false },
+    camBusy: false,
     keysPrev: new Set<number>(),
     unlocks: [] as { at: Point; start: number }[],
     lastOutcome: undefined as RaidOutcome | undefined,
@@ -236,6 +259,7 @@ export function Board(props: BoardProps) {
         now - a.guardsStart < STEP_MS ||
         (a.victoryAt > 0 && now - a.victoryAt < 4000) ||
         a.unlocks.length > 0 ||
+        a.camBusy ||
         (p.zoom !== undefined && Math.abs(a.cam.z - (p.zoom ?? 1)) > 0.01) ||
         dragRef.current !== null;
       // Frame-time watchdog: only while something is animating.
@@ -383,31 +407,44 @@ export function Board(props: BoardProps) {
 
       // ---- draw ----
       const W = room.size * T;
+      // Canvas size in device px: the room's square on phones and in the editor, the whole container
+      // in a desktop viewport.
+      const CW = canvas.width;
+      const CH = canvas.height;
       ctx.save();
-      ctx.clearRect(0, 0, W, W);
+      ctx.clearRect(0, 0, CW, CH);
       if (now < a.shakeUntil) {
         const m = a.shakeMag * ((a.shakeUntil - now) / 300);
         ctx.translate((Math.random() - 0.5) * 2 * m, (Math.random() - 0.5) * 2 * m);
       }
       // Camera: follow the raider (or the exit on a breach), smoothly zooming.
-      if (p.zoom !== undefined) {
+      if (p.zoom !== undefined || p.viewport) {
         const won = p.outcome === "breach" && a.victoryAt > 0;
-        const z = Math.max(1, (p.zoom ?? 1) + (won ? 0.25 : 0));
+        const z = p.viewport
+          ? deskScale(CW, CH, room.size, p.viewport.zoomStep + (won ? -1 : 0))
+          : Math.max(1, (p.zoom ?? 1) + (won ? 0.25 : 0));
         const focus = won ? { x: room.exit.x * T + T / 2, y: room.exit.y * T + T / 2 } : { x: a.raider.x + T / 2, y: a.raider.y + T / 2 };
-        const half = W / (2 * z);
-        const tx = Math.max(half, Math.min(W - half, focus.x));
-        const ty = Math.max(half, Math.min(W - half, focus.y));
+        // A view larger than the room (wide windows) centers it; otherwise stay inside the room.
+        const clampTo = (v: number, half: number) => (W <= 2 * half ? W / 2 : Math.max(half, Math.min(W - half, v)));
+        const tx = clampTo(focus.x, CW / (2 * z));
+        const ty = clampTo(focus.y, CH / (2 * z));
         const k = p.reduced || !a.cam.ready ? 1 : 0.18;
         a.cam = { x: a.cam.x + (tx - a.cam.x) * k, y: a.cam.y + (ty - a.cam.y) * k, z: a.cam.z + (z - a.cam.z) * k, ready: true };
-        const ch = W / (2 * a.cam.z);
-        a.cam.x = Math.max(ch, Math.min(W - ch, a.cam.x));
-        a.cam.y = Math.max(ch, Math.min(W - ch, a.cam.y));
-        ctx.translate(W / 2, W / 2);
-        ctx.scale(a.cam.z, a.cam.z);
-        ctx.translate(-a.cam.x, -a.cam.y);
-        viewRef.current = { cx: a.cam.x, cy: a.cam.y, z: a.cam.z };
+        a.cam.x = clampTo(a.cam.x, CW / (2 * a.cam.z));
+        a.cam.y = clampTo(a.cam.y, CH / (2 * a.cam.z));
+        a.camBusy = Math.abs(tx - a.cam.x) > 0.4 || Math.abs(ty - a.cam.y) > 0.4 || Math.abs(z - a.cam.z) > 0.004;
+        if (p.viewport) {
+          // Whole device pixels for the translation: tiles and sprites never land between pixels.
+          ctx.translate(Math.round(CW / 2 - a.cam.x * a.cam.z), Math.round(CH / 2 - a.cam.y * a.cam.z));
+          ctx.scale(a.cam.z, a.cam.z);
+        } else {
+          ctx.translate(W / 2, W / 2);
+          ctx.scale(a.cam.z, a.cam.z);
+          ctx.translate(-a.cam.x, -a.cam.y);
+        }
+        viewRef.current = { cx: a.cam.x, cy: a.cam.y, z: a.cam.z, cw: CW, ch: CH };
       } else {
-        viewRef.current = { cx: W / 2, cy: W / 2, z: 1 };
+        viewRef.current = { cx: W / 2, cy: W / 2, z: 1, cw: CW, ch: CH };
       }
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(L.layer.canvas, 0, 0);
@@ -475,22 +512,25 @@ export function Board(props: BoardProps) {
         if (i < nativeGuards) drawNativeMark(ctx, room, gx, gy);
       });
 
+      // The raider and the torch sit on whole world pixels in a desktop viewport (crisp sprites).
+      const rx = p.viewport ? Math.round(a.raider.x) : a.raider.x;
+      const ry = p.viewport ? Math.round(a.raider.y) : a.raider.y;
       const settled = a.shown === path.length - 1 && !a.seg;
       const dead = p.outcome === "defeated" && settled;
       const stalled = p.outcome === "out_of_moves" && settled;
       if (path.length) {
         if (dead) {
-          drawRaider(ctx, a.raider.x, a.raider.y, t, true);
+          drawRaider(ctx, rx, ry, t, true);
           drawSkull(ctx, path[path.length - 1]);
         } else if (stalled) {
-          drawRaider(ctx, a.raider.x, a.raider.y, t, true);
+          drawRaider(ctx, rx, ry, t, true);
           const end = path[path.length - 1];
           const r = T * (0.55 + 0.1 * Math.sin(t * 4));
           ctx.strokeStyle = COLORS.steel;
           ctx.lineWidth = 3;
           ctx.strokeRect(end.x * T + T / 2 - r, end.y * T + T / 2 - r, r * 2, r * 2);
         } else {
-          drawRaider(ctx, a.raider.x, a.raider.y, t);
+          drawRaider(ctx, rx, ry, t);
         }
         // Fog of war (soft-edged, 1px per tile scaled up), then the pre-rendered torchlight mask.
         const cx = a.raider.x + T / 2;
@@ -575,10 +615,30 @@ export function Board(props: BoardProps) {
       ctx.globalAlpha = 1;
       ctx.restore();
 
+      if (p.viewport?.vignette) {
+        // Soft darkening toward the window edges, pre-rendered once per size.
+        let v = vignetteRef.current;
+        if (!v || v.w !== CW || v.h !== CH) {
+          const c = document.createElement("canvas");
+          c.width = CW;
+          c.height = CH;
+          const g = c.getContext("2d")!;
+          const r = Math.hypot(CW, CH) / 2;
+          const grad = g.createRadialGradient(CW / 2, CH / 2, r * 0.45, CW / 2, CH / 2, r);
+          grad.addColorStop(0, "rgba(6,4,3,0)");
+          grad.addColorStop(1, "rgba(6,4,3,0.55)");
+          g.fillStyle = grad;
+          g.fillRect(0, 0, CW, CH);
+          v = vignetteRef.current = { w: CW, h: CH, canvas: c };
+        }
+        ctx.drawImage(v.canvas, 0, 0);
+      }
+
       if (a.stalledAt) {
         ctx.fillStyle = `rgba(20,16,12,${0.45 * Math.min(1, (now - a.stalledAt) / 500)})`;
-        ctx.fillRect(0, 0, W, W);
-        if (path.length) {
+        ctx.fillRect(0, 0, CW, CH);
+        // (This outline is drawn in screen space, so it only lines up when nothing is zoomed.)
+        if (path.length && !p.viewport) {
           const end = path[path.length - 1];
           ctx.strokeStyle = COLORS.steel;
           ctx.lineWidth = 3;
@@ -586,15 +646,16 @@ export function Board(props: BoardProps) {
         }
       }
       if (a.deadAt) {
-        const v = ctx.createRadialGradient(W / 2, W / 2, W * 0.25, W / 2, W / 2, W * 0.75);
+        const R = Math.max(CW, CH);
+        const v = ctx.createRadialGradient(CW / 2, CH / 2, R * 0.25, CW / 2, CH / 2, R * 0.75);
         v.addColorStop(0, "rgba(120,0,0,0)");
         v.addColorStop(1, `rgba(120,0,0,${0.45 * Math.min(1, (now - a.deadAt) / 400)})`);
         ctx.fillStyle = v;
-        ctx.fillRect(0, 0, W, W);
+        ctx.fillRect(0, 0, CW, CH);
       }
       if (now < a.flashUntil) {
         ctx.fillStyle = `rgba(229,72,77,${0.35 * ((a.flashUntil - now) / 220)})`;
-        ctx.fillRect(0, 0, W, W);
+        ctx.fillRect(0, 0, CW, CH);
       }
 
       raf = requestAnimationFrame(frame);
@@ -609,13 +670,38 @@ export function Board(props: BoardProps) {
     return () => cancelAnimationFrame(raf);
   }, []);
 
+  // Desktop viewport: keep the canvas's pixel size equal to its on-screen size (device pixels,
+  // capped), and redraw on every resize.
+  const isViewport = !!props.viewport;
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !isViewport) return;
+    const fit = () => {
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      if (!w || !h) return;
+      let dpr = Math.min(window.devicePixelRatio || 1, 2);
+      if (w * h * dpr * dpr > MAX_VIEWPORT_PIXELS) dpr = Math.sqrt(MAX_VIEWPORT_PIXELS / (w * h));
+      const pw = Math.max(1, Math.round(w * dpr));
+      const ph = Math.max(1, Math.round(h * dpr));
+      if (canvas.width === pw && canvas.height === ph) return;
+      canvas.width = pw;
+      canvas.height = ph;
+      anim.current.lastProps = null; // draw again right away
+      anim.current.cam.ready = false; // and snap the camera instead of sweeping
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(canvas);
+    return () => ro.disconnect();
+  }, [isViewport]);
+
   const toTile = (e: React.PointerEvent<HTMLCanvasElement>): Point => {
     const r = e.currentTarget.getBoundingClientRect();
     const size = props.room.size;
-    const W = size * T;
     const v = viewRef.current;
-    const wx = (((e.clientX - r.left) / r.width) * W - W / 2) / v.z + v.cx;
-    const wy = (((e.clientY - r.top) / r.height) * W - W / 2) / v.z + v.cy;
+    const wx = (((e.clientX - r.left) / r.width) * v.cw - v.cw / 2) / v.z + v.cx;
+    const wy = (((e.clientY - r.top) / r.height) * v.ch - v.ch / 2) / v.z + v.cy;
     return {
       x: Math.max(0, Math.min(size - 1, Math.floor(wx / T))),
       y: Math.max(0, Math.min(size - 1, Math.floor(wy / T))),
@@ -627,8 +713,7 @@ export function Board(props: BoardProps) {
   return (
     <canvas
       ref={canvasRef}
-      width={props.room.size * T}
-      height={props.room.size * T}
+      {...(isViewport ? {} : { width: props.room.size * T, height: props.room.size * T })}
       className="pixel"
       role="img"
       aria-label={props.label ?? `Room of ${chogName(props.room.tokenId)}`}

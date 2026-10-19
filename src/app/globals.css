@@ -234,3 +234,10 @@ html[data-fire-cursor] [role="button"],
 html[data-fire-cursor] label {
   cursor: pointer;
 }
+
+/* The desktop raid screen fills the window; the page behind it never scrolls. */
+html[data-desk-game],
+html[data-desk-game] body {
+  overflow: hidden;
+  height: 100dvh;
+}
