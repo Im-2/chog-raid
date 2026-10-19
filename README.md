@@ -25,7 +25,15 @@ Open http://localhost:3000.
 - **Leaderboards**: weekly seasons with a countdown; Raider and Warden points boards, the daily raid board, fastest clears and all-time stats. Top 3 each season earn a badge.
 - **Come back daily**: one featured room per day (same for everyone) with a bonus and its own board, a raid-day streak, and for holders a "days held" streak, Warden points for every raider who fails in their room, raid alerts with replays, and a "Defend again" heatmap that shows where raiders got through and suggests a fix.
 
-**$CHOG prize pool (optional, off by default, simulated):** set `NEXT_PUBLIC_FEATURE_CHOG_TOKEN=true` (or `npm run dev:mock -- --chog`). Your real $CHOG balance is read from Monad; daily-raid entry fees and season payouts are recorded by the game only. No tokens are transferred.
+### $CHOG (optional bonus layer)
+
+$CHOG ([`0x3500…7777`](https://monadscan.com/token/0x350035555E10d9AfAF1566AaebfCeD5BA6C27777) on Monad) is optional everywhere: the game is fully playable without it, and nothing is gated behind it. See `/chog` in the app, and `src/config/chog.ts` for every number.
+
+- **Balance and perks (real, on-chain, read-only):** the wallet's live balance is read with `balanceOf` and shown in the nav badge, the wallet menu, your profile and a landing-page panel. Holders unlock tiered perks (a holder badge, one extra counted daily raid, a golden torch). Locked perks show the balance needed. Perks are cosmetic or convenience only.
+- **Optional payment (real, verified on-chain, available but never required):** on the Daily Raid card, signed-in wallets get a secondary "Pay with $CHOG" button: "Optional: pay X $CHOG for a bonus attempt." The player's own wallet sends a normal ERC-20 transfer (no custom contract, no server-side signing). The server then reads the transaction receipt and checks the Transfer event (real $CHOG contract, sender = the signed-in wallet, recipient, amount, confirmations), claims the transaction hash with an atomic insert so it can never be reused, and grants one bonus attempt. If the chain can't be read, nothing is granted.
+- There are **no prizes, payouts or prize pool**: nothing is funded by this game.
+
+**Enable the payment button:** set `CHOG_PRIZE_POOL_ADDRESS` (the public address payments go to) in `.env.local` and in your host's environment variables (e.g. Vercel). Optional: `CHOG_PAYMENT_AMOUNT` (default 10 whole $CHOG) and `CHOG_PAYMENTS_ENABLED=false` to switch it off. With the address unset, the button is simply hidden. `NEXT_PUBLIC_FEATURE_CHOG_TOKEN=false` hides balance and perks. For offline demos in mock mode, `MOCK_CHOG_BALANCE=1500` fakes a balance.
 
 **No wallet or no Chog?** Run `npm run dev:mock` and open http://localhost:3001: generated Chogs, and a **Demo owner** button that signs you in as the holder of Chogs 1-10 so you can save a defense and raid it from another browser. (Offline or no RPC? Set `NFT_ADAPTER=mock` in `.env.local`.)
 

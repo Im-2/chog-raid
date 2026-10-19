@@ -25,7 +25,7 @@ const raid = (tokenId: number, status: RaidRecord["status"], moves = 20): RaidRe
   createdAt: "2026-10-08T10:00:00Z",
   updatedAt: "",
 });
-const snap = (raids: RaidRecord[]): Snapshot => ({ raids, awards: [], defenses: [], supply: SUPPLY, badges: new Map(), season: seasonAt(NOW) });
+const snap = (raids: RaidRecord[]): Snapshot => ({ raids, awards: [], defenses: [], supply: SUPPLY, badges: new Map(), extra: { day: "", byWallet: new Map() }, season: seasonAt(NOW) });
 
 describe("next room and bests", () => {
   const daily = dailyTokenId(dayKey(NOW), SUPPLY);

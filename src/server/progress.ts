@@ -1,9 +1,13 @@
 import "server-only";
+import { isAddress } from "viem";
+import { CHOG } from "@/config/chog";
 import { RETENTION } from "@/config/retention";
+import { allowedAttempts, bonusPayments, chogBalance } from "./chog";
 import { getNftAdapter } from "@/nft";
 import { raiderLabel } from "./identity";
 import {
   badgesFor,
+  dailyAttempts,
   dailyBoard,
   dailyTokenId,
   dayKey,
@@ -27,6 +31,8 @@ export type Snapshot = {
   supply: number;
   badges: Map<string, Badge[]>;
   season: ReturnType<typeof seasonAt>;
+  /** Extra counted daily attempts per wallet (lowercase) for `day`: paid ones plus the holder perk. Only wallets that used their free ones are looked up. */
+  extra: { day: string; byWallet: Map<string, number> };
 };
 
 // Recomputed at most every few seconds; everything below reads from one snapshot.
@@ -42,7 +48,20 @@ export function snapshot(maxAgeMs = 4000): Promise<Snapshot> {
       ]);
       const awards = scoreRaids(raids, supply);
       const season = seasonAt(Date.now());
-      return { raids, awards, defenses, supply, season, badges: badgesFor(awards, season.index) };
+      // Extra attempts (paid, or a holder perk) matter only to wallets that used their free ones.
+      const day = dayKey(new Date());
+      const today = dailyTokenId(day, supply);
+      const byWallet = new Map<string, number>();
+      const mine = [...new Set(raids.filter((r) => r.tokenId === today && dayKey(r.createdAt) === day).map((r) => lc(r.raider)))];
+      await Promise.all(
+        mine
+          .filter((who) => isAddress(who, { strict: false }) && dailyAttempts(raids, day, today, who).length > CHOG.daily.freeAttempts)
+          .map(async (who) => {
+            const [paid, balance] = await Promise.all([bonusPayments(store, who, day).catch(() => 0), chogBalance(who).catch(() => null)]);
+            byWallet.set(who, allowedAttempts(paid, balance) - CHOG.daily.freeAttempts);
+          }),
+      );
+      return { raids, awards, defenses, supply, season, badges: badgesFor(awards, season.index), extra: { day, byWallet } };
     })();
     cached = { at: Date.now(), snap };
     snap.catch(() => (cached = null));
@@ -120,7 +139,7 @@ export function daily(snap: Snapshot, me: string | null, now = new Date()) {
     tokenId,
     endsAt: next.toISOString(),
     bonus: RETENTION.raider.dailyClear,
-    board: dailyBoard(snap.raids, day, tokenId).map((e, i) => ({
+    board: dailyBoard(snap.raids, day, tokenId, { allowed: (who) => CHOG.daily.freeAttempts + (snap.extra.day === day ? (snap.extra.byWallet.get(lc(who)) ?? 0) : 0) }).map((e, i) => ({
       place: i + 1,
       label: raiderLabel(e.raider),
       moves: e.moves,

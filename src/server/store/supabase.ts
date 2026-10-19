@@ -131,6 +131,13 @@ export function createSupabaseStore(url: string, serviceKey: string): Store {
       const row = check(await db.from("kv").select("value").eq("key", key).maybeSingle()) as { value: T } | null;
       return row ? row.value : null;
     },
+    async insertKv(key, value) {
+      // kv.key is the primary key, so the database itself arbitrates racing inserts.
+      const { error } = await db.from("kv").insert({ key, value, updated_at: new Date().toISOString() });
+      if (!error) return true;
+      if (error.code === "23505") return false; // unique violation: already there
+      throw new Error(`supabase: ${error.message}`);
+    },
     async setKv(key, value) {
       check(await db.from("kv").upsert({ key, value, updated_at: new Date().toISOString() }));
     },

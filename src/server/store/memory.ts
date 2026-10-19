@@ -69,6 +69,14 @@ export function createMemoryStore(
       state.kv[key] = copy(value);
       onChange();
     },
+    async insertKv(key, value) {
+      // No await between the check and the write, so this is atomic within the process.
+      state.kv ??= {};
+      if (key in state.kv) return false;
+      state.kv[key] = copy(value);
+      onChange();
+      return true;
+    },
     async listDefenses() {
       return Object.values(state.defenses).map(copy);
     },

@@ -17,6 +17,7 @@ import { HowToPlay, RoomInfo, type ChogSummary } from "./RoomInfo";
 import { useServerRaid } from "./useServerRaid";
 import { DesktopRaid } from "./DesktopRaid";
 import { useDesktopPointer } from "@/lib/useDesktop";
+import { useChog } from "../chog/useChog";
 import { LatencyReadout } from "./LatencyReadout";
 import { Badges, type BadgeT } from "../progress/bits";
 import styles from "./game.module.css";
@@ -74,6 +75,8 @@ export function RaidScreen({
   const effects = useEffectsMode();
   // Mouse + keyboard devices get the full-window layout; touch devices keep this one.
   const desk = useDesktopPointer();
+  const { chog: tokenState } = useChog();
+  const torch = tokenState?.effects.torch ?? undefined; // cosmetic $CHOG perk
   const sight = raid.sight;
 
   useEffect(() => {
@@ -152,6 +155,7 @@ export function RaidScreen({
         setSound={setSound}
         showResult={showResult}
         again={again}
+        torch={torch}
       />
     );
   }
@@ -208,6 +212,7 @@ export function RaidScreen({
               outcome={result.outcome}
               sound={sound}
               nativeLayer={nativeLayer}
+              torch={torch}
               nativeGuards={raid.visibleTraps.slice(0, sight!.nativeTraps).filter((t) => t.type === "guard").length}
               fog={room.tier.fog ? { seen: sight!.seen, lit: sight!.lit } : undefined}
               pickedUp={result.pickedUp}

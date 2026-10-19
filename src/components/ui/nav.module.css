@@ -36,9 +36,25 @@
   color: var(--torch);
   text-decoration: none;
 }
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 @media (max-width: 560px) {
   .nav {
     flex-wrap: wrap;
+  }
+  /* Phones: brand + badge + bell + wallet on one row, the page links on their own row below. */
+  .actions {
+    margin-left: auto;
+    gap: 6px;
+  }
+  .links {
+    order: 3;
+    flex-basis: 100%;
+    margin-left: 0;
+    justify-content: space-between;
   }
   .brand {
     font-size: 18px;

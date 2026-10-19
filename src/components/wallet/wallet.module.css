@@ -52,3 +52,27 @@
   color: var(--blood);
   font-size: 14px;
 }
+
+/* $CHOG balance row at the top of the wallet menu */
+.chogRow {
+  display: flex !important;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 10px !important;
+  margin-bottom: 4px;
+  border-bottom: 2px dashed var(--border);
+}
+.chogRow > span {
+  display: grid;
+  line-height: 1.25;
+}
+.chogRow > span > span {
+  display: block;
+}
+.chogRow b {
+  color: var(--gold);
+}
+.chogRow small {
+  font-size: 12px;
+  color: var(--muted);
+}

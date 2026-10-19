@@ -1,0 +1,326 @@
+/* $CHOG surfaces: nav badge, landing panel, perks, pay sheet, footer, /chog page. */
+
+/* ---- nav badge ---- */
+.navBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 3px 9px;
+  color: var(--gold);
+  background: rgba(33, 24, 19, 0.8);
+  border: 2px solid var(--border);
+  font-size: 14px;
+  white-space: nowrap;
+}
+.navBadge:hover {
+  border-color: var(--torch);
+  text-decoration: none;
+}
+.navNum {
+  font-size: 14px;
+  color: var(--text);
+}
+.navBadge[data-signed] .navNum {
+  color: var(--gold);
+}
+.navUnit {
+  font-size: 11px;
+  color: var(--muted);
+}
+@media (max-width: 560px) {
+  .navUnit {
+    display: none;
+  }
+  .navBadge {
+    padding: 3px 7px;
+  }
+}
+
+/* ---- landing panel ---- */
+.panel {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.9fr) minmax(0, 1.7fr) minmax(210px, 0.9fr);
+  gap: 20px;
+  align-items: start;
+  max-width: 1120px;
+  margin: 0 auto 18px;
+  padding: 18px 18px 16px;
+  background: rgba(33, 24, 19, 0.88);
+  border: 3px solid var(--border);
+  box-shadow: 0 0 0 2px var(--ink);
+}
+.title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px;
+  font-size: 26px;
+  color: var(--gold);
+}
+.line {
+  margin: 0;
+  font-family: var(--font-pixel);
+  font-size: 18px;
+  line-height: 1.3;
+  color: var(--text);
+}
+.mine {
+  padding: 12px;
+  background: rgba(11, 8, 6, 0.55);
+  border: 2px dashed var(--border);
+}
+.mineHead {
+  margin: 0 0 6px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.balance {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 20px;
+}
+.balance b {
+  font-size: 24px;
+  color: var(--gold);
+}
+@media (max-width: 900px) {
+  .panel {
+    grid-template-columns: 1fr;
+    gap: 14px;
+    margin: 0 16px 18px;
+  }
+}
+
+/* ---- perks ---- */
+.perks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.perks li {
+  display: flex;
+  gap: 10px;
+  padding: 8px 10px;
+  background: rgba(11, 8, 6, 0.45);
+  border: 2px solid var(--border);
+}
+.perks li[data-locked] {
+  opacity: 0.55;
+  filter: grayscale(0.7);
+}
+.perks p {
+  margin: 0;
+}
+.perkTitle {
+  font-size: 15px;
+}
+.perkTier {
+  margin-left: 6px;
+  padding: 0 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+  background: var(--gold);
+}
+.perks li[data-locked] .perkTier {
+  background: var(--muted);
+}
+.perkBlurb {
+  font-size: 13px;
+  color: var(--muted);
+}
+.perkNeed {
+  margin-top: 2px !important;
+  font-size: 13px;
+}
+
+/* ---- Daily card: the quiet optional payment ---- */
+.raidRow {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+/* The free Raid button stays the main action: it keeps its full label, the payment is the smaller one. */
+.raidRow > :first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  text-align: center;
+  font-size: 14px;
+  padding-inline: 8px;
+}
+.payBtn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 8px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.optional {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: #6d4a2a;
+}
+.attempts {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: #6d4a2a;
+}
+.holderTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 6px;
+  padding: 0 6px;
+  font-size: 11px;
+  color: #2b1a0e;
+  background: #f0c060;
+  border: 1px solid #8a5523;
+}
+
+/* ---- pay sheet ---- */
+.paySheet {
+  display: grid;
+  gap: 10px;
+}
+.paySheet p {
+  margin: 0;
+}
+.payActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.payOk {
+  font-size: 20px;
+  color: var(--moss);
+}
+
+/* ---- footer ---- */
+.footer {
+  max-width: 1120px;
+  margin: 40px auto 0;
+  padding: 18px 16px 32px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  align-items: center;
+  border-top: 2px dashed var(--border);
+  font-size: 14px;
+  color: var(--muted);
+}
+.footer nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+}
+.footer a {
+  color: var(--muted);
+}
+.footer a:hover {
+  color: var(--torch);
+  text-decoration: none;
+}
+.footer .spacer {
+  margin-left: auto;
+}
+
+/* ---- /chog page ---- */
+.page {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 8px 16px 0;
+}
+.page h1 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0 4px;
+  font-size: clamp(30px, 6vw, 44px);
+  color: var(--gold);
+}
+.lede {
+  margin: 0 0 18px;
+  font-size: 18px;
+  color: var(--text);
+}
+.card {
+  margin: 0 0 16px;
+  padding: 16px;
+  background: rgba(33, 24, 19, 0.88);
+  border: 3px solid var(--border);
+  box-shadow: 0 0 0 2px var(--ink);
+}
+.card h2 {
+  margin: 0 0 8px;
+  font-size: 20px;
+  color: var(--torch);
+}
+.card p {
+  margin: 0 0 8px;
+}
+.card ul.plain {
+  margin: 0;
+  padding-left: 20px;
+}
+.card ul.plain li {
+  margin-bottom: 6px;
+}
+.cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  align-items: start;
+}
+@media (max-width: 700px) {
+  .cols {
+    grid-template-columns: 1fr;
+  }
+}
+.real,
+.notReal {
+  padding: 12px;
+  border: 2px solid var(--border);
+  background: rgba(11, 8, 6, 0.45);
+}
+.real h3,
+.notReal h3 {
+  margin: 0 0 6px;
+  font-size: 15px;
+}
+.real h3 {
+  color: var(--moss);
+}
+.notReal h3 {
+  color: var(--muted);
+}
+.real ul,
+.notReal ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 14px;
+}
+.contract {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  align-items: center;
+}
+.addr {
+  font-family: var(--font-num);
+  font-size: 13px;
+  word-break: break-all;
+  padding: 4px 8px;
+  background: rgba(11, 8, 6, 0.7);
+  border: 2px solid var(--border);
+}

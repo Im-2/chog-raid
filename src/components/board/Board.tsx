@@ -59,6 +59,8 @@ export type BoardProps = {
   pickedUp?: number[];
   /** Highlight the room's built-in "Native defense" layer. */
   nativeLayer?: boolean;
+  /** Cosmetic torch glow color (a $CHOG perk); the default warm orange when unset. */
+  torch?: string;
   /** Fog of war: only `seen` tiles are drawn; `lit` tiles are in torchlight, the rest dimmed. */
   fog?: { seen: boolean[]; lit: number[] };
   /** Tiles the client actually knows (from the server). Unknown tiles are never painted. */
@@ -544,7 +546,7 @@ export function Board(props: BoardProps) {
         ctx.save();
         ctx.globalCompositeOperation = "lighter";
         ctx.globalAlpha = dead ? 0.6 : 1;
-        ctx.drawImage(torchGlow(), cx - T * 3.2 * flicker, cy - T * 3.2 * flicker, T * 6.4 * flicker, T * 6.4 * flicker);
+        ctx.drawImage(torchGlow(p.torch), cx - T * 3.2 * flicker, cy - T * 3.2 * flicker, T * 6.4 * flicker, T * 6.4 * flicker);
         ctx.restore();
         ctx.imageSmoothingEnabled = false;
         // The exit door is a beacon: it glows through the dark so the goal is always clear.

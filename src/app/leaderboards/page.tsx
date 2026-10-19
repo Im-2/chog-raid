@@ -5,6 +5,7 @@ import { RETENTION } from "@/config/retention";
 import { Tabs } from "@/components/leaderboards/Tabs";
 import { Badges, Countdown } from "@/components/progress/bits";
 import { DifficultyBadge } from "@/components/ui/DifficultyBadge";
+import { SiteFooter } from "@/components/ui/SiteFooter";
 import { SiteNav } from "@/components/ui/SiteNav";
 import { difficultyFor } from "@/lib/difficulty";
 import { currentRaider, raiderLabel } from "@/server/identity";
@@ -228,6 +229,7 @@ export default async function Leaderboards() {
           ]}
         />
       </main>
+      <SiteFooter />
     </>
   );
 }

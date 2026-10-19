@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ChogBadge } from "../chog/ChogBits";
 import { NavChips } from "../progress/NavChips";
 import { WalletButton } from "../wallet/WalletButton";
 import styles from "./nav.module.css";
@@ -13,9 +14,13 @@ export function SiteNav() {
         <Link href="/atlas">Atlas</Link>
         <Link href="/leaderboards">Leaderboards</Link>
         <Link href="/defend">Defend</Link>
+        <Link href="/chog">$CHOG</Link>
       </nav>
-      <NavChips />
-      <WalletButton compact />
+      <div className={styles.actions}>
+        <ChogBadge />
+        <NavChips />
+        <WalletButton compact />
+      </div>
     </header>
   );
 }

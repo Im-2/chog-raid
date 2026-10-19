@@ -4,7 +4,10 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { chogName, chogTitle } from "@/lib/names";
 import { Countdown } from "./bits";
-import { ChogPool, type ChogState } from "./ChogPool";
+import { ChogIcon } from "../chog/ChogIcon";
+import { PayWithChog } from "../chog/PayWithChog";
+import { useChog } from "../chog/useChog";
+import chogStyles from "../chog/chog.module.css";
 import styles from "./daily.module.css";
 
 type Daily = {
@@ -19,17 +22,13 @@ type Season = { season: number; endsAt: string; daily: Daily };
 /** Today's featured room, pinned to the dungeon notice board like a wanted poster. */
 export function DailyCard() {
   const [data, setData] = useState<Season | null | "error">(null);
-  const [chog, setChog] = useState<ChogState | null>(null);
+  const { chog } = useChog();
 
   useEffect(() => {
     fetch("/api/season", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then(setData)
       .catch(() => setData("error"));
-    fetch("/api/chog", { cache: "no-store" })
-      .then((r) => r.json())
-      .then(setChog)
-      .catch(() => {});
   }, []);
 
   if (data === "error") return null;
@@ -71,9 +70,28 @@ export function DailyCard() {
             </dd>
           </div>
         </dl>
-        <Link href={`/room/${d.tokenId}`} className={`btn primary ${styles.raid}`}>
-          Raid today&apos;s room
-        </Link>
+        <div className={chogStyles.raidRow}>
+          <Link href={`/room/${d.tokenId}`} className={`btn primary ${styles.raid}`}>
+            Raid today&apos;s room
+          </Link>
+          {chog?.payment && <PayWithChog chog={chog} />}
+        </div>
+        {chog?.payment && (
+          <p className={chogStyles.optional}>
+            Optional: pay {chog.payment.amount} $CHOG for a bonus attempt.
+          </p>
+        )}
+        {chog && (
+          <p className={chogStyles.attempts}>
+            Counted attempts today: <b className="num">{Math.min(chog.attempts.used, chog.attempts.allowed)}</b> of{" "}
+            <b className="num">{chog.attempts.allowed}</b>
+            {chog.effects.badge && (
+              <span className={chogStyles.holderTag}>
+                <ChogIcon size={11} /> $CHOG holder
+              </span>
+            )}
+          </p>
+        )}
         {d.board.length > 0 ? (
           <ol className={styles.top}>
             {d.board.slice(0, 3).map((e) => (
@@ -89,7 +107,6 @@ export function DailyCard() {
           Season {data.season + 1} ends in <Countdown to={data.endsAt} /> →
         </Link>
       </section>
-      {chog?.enabled && <ChogPool state={chog} />}
     </div>
   );
 }

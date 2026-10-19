@@ -1,4 +1,4 @@
-// Every tunable number for points, streaks, seasons, the daily raid and the $CHOG pool.
+// Every tunable number for points, streaks, seasons and the daily raid. ($CHOG: src/config/chog.ts)
 // Change values here; nothing else hardcodes them.
 
 export const RETENTION = {
@@ -50,16 +50,6 @@ export const RETENTION = {
     /** The featured room is picked from this seed + the UTC date, so everyone gets the same one. */
     seed: "chog-raid-daily",
     leaderboardSize: 20,
-  },
-
-  /** $CHOG prize pool. Behind NEXT_PUBLIC_FEATURE_CHOG_TOKEN (off by default). SIMULATED: no tokens move. */
-  chog: {
-    decimals: 18,
-    /** Entry fee for the daily raid, in whole $CHOG. */
-    dailyEntryFee: 10,
-    /** Share of each season's pool paid to the top raider and the top Warden. */
-    payoutRaider: 0.5,
-    payoutWarden: 0.5,
   },
 } as const;
 

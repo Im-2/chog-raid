@@ -43,6 +43,8 @@ type Props = {
   setSound: (v: boolean) => void;
   showResult: boolean;
   again: () => void;
+  /** Cosmetic torch color from a $CHOG perk. */
+  torch?: string;
 };
 
 const save = (k: string, v: string) => {
@@ -71,7 +73,7 @@ function KeyIcon({ held }: { held: boolean }) {
  * and everything is keyboard-driven. Movement is optimistic exactly like on phones (the shared
  * useServerRaid hook), so keys feel instant; the server still resolves every move.
  */
-export function DesktopRaid({ room, chog, daily, defenderBadges, raid, effects, sound, setSound, showResult, again }: Props) {
+export function DesktopRaid({ room, chog, daily, defenderBadges, raid, effects, sound, setSound, showResult, again, torch }: Props) {
   const { result, sight } = raid;
   const practice = raid.practice === true;
   const screen = useRef<HTMLDivElement>(null);
@@ -254,6 +256,7 @@ export function DesktopRaid({ room, chog, daily, defenderBadges, raid, effects, 
           outcome={result.outcome}
           sound={sound}
           nativeLayer={nativeLayer}
+          torch={torch}
           nativeGuards={raid.visibleTraps.slice(0, sight!.nativeTraps).filter((t) => t.type === "guard").length}
           fog={room.tier.fog ? { seen: sight!.seen, lit: sight!.lit } : undefined}
           pickedUp={result.pickedUp}

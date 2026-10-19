@@ -32,7 +32,8 @@ if (typeof window !== "undefined") {
   window.dispatchEvent(new Event("eip6963:requestProvider"));
 }
 
-function pickProvider(): Eip1193 | null {
+/** The browser wallet to talk to (EIP-6963 announced, else window.ethereum). */
+export function pickProvider(): Eip1193 | null {
   if (wallets.length) return wallets[0].provider;
   return ((window as unknown as { ethereum?: Eip1193 }).ethereum as Eip1193) ?? null;
 }

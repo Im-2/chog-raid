@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { ChogIcon } from "../chog/ChogIcon";
+import { fmtChogFull, useChog } from "../chog/useChog";
 import { demoSignIn, shortAddress, signIn, signOut, useSession } from "./session";
 import styles from "./wallet.module.css";
 
@@ -8,6 +10,7 @@ import styles from "./wallet.module.css";
 export function WalletButton({ compact = false }: { compact?: boolean }) {
   const s = useSession();
   const [open, setOpen] = useState(false);
+  const { chog } = useChog();
 
   if (s.status === "loading") return <span className={`btn ${styles.placeholder}`} aria-hidden />;
 
@@ -34,6 +37,23 @@ export function WalletButton({ compact = false }: { compact?: boolean }) {
       </button>
       {open && (
         <div className={styles.menu} role="menu">
+          {chog?.enabled && (
+            <a role="menuitem" href="/chog" className={styles.chogRow}>
+              <ChogIcon size={20} />
+              <span>
+                <span>
+                  <b className="num">{chog.balanceUnavailable ? "unavailable" : fmtChogFull(chog.balance)}</b> $CHOG
+                </span>
+                <small>
+                  {chog.balanceUnavailable
+                    ? "Couldn't read your balance"
+                    : chog.tier
+                      ? `${chog.tier} · ${chog.perks.filter((p) => p.unlocked).length} of ${chog.perks.length} perks`
+                      : `No perks yet · from ${chog.perks[0]?.minBalance.toLocaleString()} $CHOG`}
+                </small>
+              </span>
+            </a>
+          )}
           <a role="menuitem" href="/defend">
             My Chogs
           </a>

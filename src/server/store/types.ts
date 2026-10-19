@@ -52,9 +52,14 @@ export interface Store {
   getDefense(tokenId: number): Promise<DefenseRecord | null>;
   saveDefense(d: DefenseRecord): Promise<void>;
   listDefenses(): Promise<DefenseRecord[]>;
-  /** Small key-value state (alert read markers, simulated $CHOG ledger). */
+  /** Small key-value state (alert read markers, used $CHOG payments, bonus attempts). */
   getKv<T>(key: string): Promise<T | null>;
   setKv(key: string, value: unknown): Promise<void>;
+  /**
+   * Write a key only if it doesn't exist yet. Atomic: of any number of concurrent calls with the
+   * same key, exactly one returns true. (Used so a payment can only ever be applied once.)
+   */
+  insertKv(key: string, value: unknown): Promise<boolean>;
 }
 
 /** Raids stored before the outcome rename used "dead" / "exhausted". */

@@ -3,7 +3,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Badges, Countdown, Streak } from "@/components/progress/bits";
+import { SiteFooter } from "@/components/ui/SiteFooter";
 import { SiteNav } from "@/components/ui/SiteNav";
+import { PerkList } from "@/components/chog/ChogBits";
+import { ChogIcon } from "@/components/chog/ChogIcon";
+import { fmtChogFull } from "@/components/chog/useChog";
+import { perkEffects, perksFor } from "@/config/chog";
+import { chogBalance, chogEnabled } from "@/server/chog";
+import chogStyles from "@/components/chog/chog.module.css";
 import { currentRaider, raiderLabel } from "@/server/identity";
 import { playerSummary, snapshot } from "@/server/progress";
 import styles from "@/components/progress/profile.module.css";
@@ -25,6 +32,11 @@ export default async function Profile({ params }: Props) {
   const [snap, me] = await Promise.all([snapshot(), currentRaider()]);
   const p = playerSummary(snap, id);
   const mine = !!me && me.toLowerCase() === id.toLowerCase();
+  // $CHOG: a real, read-only on-chain balance for wallet profiles (null = couldn't be read).
+  const showChog = chogEnabled() && p.isWallet;
+  const balance = showChog ? await chogBalance(id) : null;
+  const perks = perksFor(balance);
+  const effects = perkEffects(balance);
 
   return (
     <>
@@ -38,6 +50,13 @@ export default async function Profile({ params }: Props) {
             </h1>
             <Badges badges={p.badges} max={12} />
             {!p.badges.length && <p className="small muted">No season badges yet. Finish a season in the top 3 to earn one.</p>}
+            {effects.badge && (
+              <p className="small" style={{ margin: "6px 0 0" }}>
+                <span className={chogStyles.holderTag} style={{ marginLeft: 0 }}>
+                  <ChogIcon size={11} /> $CHOG holder
+                </span>
+              </p>
+            )}
           </div>
           <div className={styles.streaks}>
             <Streak days={p.streak.current} hot={p.streak.activeToday} label="day raid streak" />
@@ -76,6 +95,28 @@ export default async function Profile({ params }: Props) {
           </div>
         </section>
 
+        {showChog && (
+          <section className={chogStyles.card} aria-labelledby="profile-chog">
+            <h2 id="profile-chog" className={styles.h2} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <ChogIcon size={22} /> $CHOG
+            </h2>
+            {balance === null ? (
+              <p className="small muted">This wallet&apos;s $CHOG balance couldn&apos;t be read right now.</p>
+            ) : (
+              <p style={{ margin: "0 0 10px" }}>
+                <b className="num" style={{ fontSize: 22, color: "var(--gold)" }}>
+                  {fmtChogFull(balance)}
+                </b>{" "}
+                $CHOG <span className="small muted">(live, from the token contract on Monad)</span>
+              </p>
+            )}
+            <PerkList perks={perks} signedIn={balance !== null} />
+            <p className="small muted" style={{ margin: "10px 0 0" }}>
+              Perks are cosmetic or convenience only, and optional. <Link href="/chog">How $CHOG works →</Link>
+            </p>
+          </section>
+        )}
+
         {p.rooms.length > 0 && (
           <section>
             <h2 className={styles.h2}>Defended rooms</h2>
@@ -101,6 +142,7 @@ export default async function Profile({ params }: Props) {
           </section>
         )}
       </main>
+      <SiteFooter />
     </>
   );
 }

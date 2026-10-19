@@ -208,20 +208,22 @@ export function lightMask(radiusTiles: number, roomSize: number, edge = 0.7): HT
   return c;
 }
 
-let warmGlow: HTMLCanvasElement | null = null;
-/** Warm additive torch glow, pre-rendered once. */
-export function torchGlow(): HTMLCanvasElement {
-  if (warmGlow) return warmGlow;
+const glows = new Map<string, HTMLCanvasElement>();
+/** Additive torch glow, pre-rendered once per color (the default is the warm orange; holders can unlock another). */
+export function torchGlow(color = "#ff9640"): HTMLCanvasElement {
+  const hit = glows.get(color);
+  if (hit) return hit;
+  const [r, g, b] = /^#[0-9a-f]{6}$/i.test(color) ? hexToRgb(color) : hexToRgb("#ff9640");
   const c = document.createElement("canvas");
   c.width = 64;
   c.height = 64;
   const ctx = c.getContext("2d")!;
-  const g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
-  g.addColorStop(0, "rgba(255,150,60,0.28)");
-  g.addColorStop(1, "rgba(255,150,60,0)");
-  ctx.fillStyle = g;
+  const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+  grad.addColorStop(0, `rgba(${r},${g},${b},0.28)`);
+  grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
+  ctx.fillStyle = grad;
   ctx.fillRect(0, 0, 64, 64);
-  warmGlow = c;
+  glows.set(color, c);
   return c;
 }
 

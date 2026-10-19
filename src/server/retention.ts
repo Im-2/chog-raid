@@ -184,11 +184,29 @@ export function daysHeld(raids: RaidRecord[], tokenId: number, savedAt: string, 
 
 export type DailyEntry = { raider: string; moves: number; at: string; raidId: string };
 
-/** Today's daily raid board: each raider's best clear of the featured room today. */
-export function dailyBoard(raids: RaidRecord[], day: string, tokenId: number): DailyEntry[] {
+/** A raider's finished attempts at the daily room on `day`, oldest first. */
+export function dailyAttempts(raids: RaidRecord[], day: string, tokenId: number, raider: string): RaidRecord[] {
+  return raids
+    .filter((r) => r.tokenId === tokenId && lc(r.raider) === lc(raider) && dayKey(r.createdAt) === day && (r.status === "breach" || r.status === "defeated" || r.status === "out_of_moves"))
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+}
+
+/**
+ * Today's daily raid board: each raider's best clear of the featured room today. With `attempts`,
+ * only a raider's first `allowed(raider)` finished attempts count (free ones, plus any paid bonus
+ * attempts); further attempts are still playable but don't appear here.
+ */
+export function dailyBoard(raids: RaidRecord[], day: string, tokenId: number, attempts?: { allowed: (raider: string) => number }): DailyEntry[] {
   const best = new Map<string, DailyEntry>();
+  const counted = new Set<string>();
+  if (attempts) {
+    for (const who of new Set(raids.filter((r) => r.tokenId === tokenId && dayKey(r.createdAt) === day).map((r) => lc(r.raider)))) {
+      for (const r of dailyAttempts(raids, day, tokenId, who).slice(0, attempts.allowed(who))) counted.add(r.id);
+    }
+  }
   for (const r of raids) {
     if (r.status !== "breach" || r.tokenId !== tokenId || dayKey(r.createdAt) !== day || assistedRaid(r)) continue;
+    if (attempts && !counted.has(r.id)) continue;
     const k = lc(r.raider);
     const cur = best.get(k);
     const e = { raider: r.raider, moves: r.moves.length, at: r.createdAt, raidId: r.id };

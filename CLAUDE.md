@@ -63,7 +63,7 @@ These are the novelty features. Build in this order, only after sections 3.1–3
 
 ## 5. $CHOG token bonus (optional, last)
 
-Behind a feature flag, off by default. If time allows: optional $CHOG entry fee for daily raid and payout to the defender or top raiders. The game must be fully playable without it. Keep the integration small and real, not decorative.
+Optional bonus layer; the game must be fully playable without it and nothing may be gated behind it. Built (see `src/config/chog.ts`, `/chog`): real on-chain balance reads with cosmetic or convenience perks, and an optional on-chain payment for a bonus Daily Raid attempt, verified server-side. No prizes, payouts or prize pool: the owner is not funding any $CHOG rewards.
 
 ## 6. Suggested stack (change if you have a better reason)
 
@@ -130,7 +130,7 @@ Requested by the user on 2026-10-09. Do NOT start before milestones 4-6 are comp
 5. **Daily raid**: one featured room each day (seeded), with its own daily leaderboard.
 6. **Raid alerts**: when someone raids your Chog, show an in-app alert (and a notification badge) with outcome and a replay link. Add "Defend again" prompting when your room was breached so the owner has a reason to come back and redesign it.
 7. **Rebuild nudge**: after a breach, show the owner exactly where the raider got through (the path heatmap) and suggest a trap slot to change.
-8. **$CHOG integration**, behind a feature flag (off by default; the game fully works without it): an optional $CHOG prize pool funded by raid entry fees on the daily raid, paid out to the top defender and top raider each season. $CHOG token contract: `0x350035555E10d9AfAF1566AaebfCeD5BA6C27777` on Monad. Build a clean, minimal integration. If a real payout contract is too risky for the time available, build the full UI and logic with a testnet or simulated pool and tell the user clearly what is simulated.
+8. **$CHOG integration** (optional; the game fully works without it). Revised by the user: no prize pool, no payouts, nothing funded. Instead: the wallet's real $CHOG balance (on-chain read) unlocks tiered cosmetic/convenience perks, and an optional on-chain payment (a normal ERC-20 transfer verified server-side, replay-protected) buys a bonus Daily Raid attempt. $CHOG token contract: `0x350035555E10d9AfAF1566AaebfCeD5BA6C27777` on Monad.
 
 Put all tunable numbers (point values, streak rules, season length, fees) in one config file. When done, run the app and tell the user what to look at.
 
