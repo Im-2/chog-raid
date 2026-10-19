@@ -11,7 +11,7 @@ import { getStore } from "@/server/store";
 /**
  * Everything the $CHOG surfaces need (nav badge, landing panel, Daily card, wallet menu, /chog):
  * the wallet's real balance and perks, today's attempts, and, only for a signed-in wallet and only
- * when it's configured, the optional payment. Nothing here is funded by this game: no prizes.
+ * when it's configured, the optional payment. (Season Rewards: /api/rewards.)
  */
 export async function GET() {
   const [snap, wallet, me] = await Promise.all([snapshot(), sessionAddress(), currentRaider()]);

@@ -4,12 +4,14 @@
 // What is real (nothing simulated):
 //   - the wallet's $CHOG balance (an on-chain ERC-20 read) and the perks it unlocks
 //   - an optional payment for a bonus daily attempt, verified on-chain by the server
-// There is no prize, no payout and no funding of any $CHOG reward.
+//   - the Season Rewards pool: the real on-chain balance of CHOG_PRIZE_POOL_ADDRESS (src/config/rewards.ts).
+//     It is unfunded until the team funds it, payouts are manual, and nothing here is claimable.
 //
 // Env (see .env.example):
 //   NEXT_PUBLIC_FEATURE_CHOG_TOKEN   balance + perks; on unless set to "false"
 //   NEXT_PUBLIC_CHOG_TOKEN_ADDRESS   the $CHOG ERC-20 on Monad
-//   CHOG_PRIZE_POOL_ADDRESS          where optional payments are sent; unset = the payment is hidden
+//   CHOG_PRIZE_POOL_ADDRESS          the pool address: optional payments go here and its balance is the rewards pool;
+//                                    unset = the payment is hidden and the pool shows as not set up
 //   CHOG_PAYMENTS_ENABLED            "false" turns the payment off even if the address is set
 //   CHOG_PAYMENT_AMOUNT              whole $CHOG per bonus attempt (default below)
 

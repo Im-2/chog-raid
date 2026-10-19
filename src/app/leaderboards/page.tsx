@@ -5,10 +5,13 @@ import { RETENTION } from "@/config/retention";
 import { Tabs } from "@/components/leaderboards/Tabs";
 import { Badges, Countdown } from "@/components/progress/bits";
 import { DifficultyBadge } from "@/components/ui/DifficultyBadge";
+import { SeasonRewards } from "@/components/rewards/SeasonRewards";
 import { SiteFooter } from "@/components/ui/SiteFooter";
 import { SiteNav } from "@/components/ui/SiteNav";
 import { difficultyFor } from "@/lib/difficulty";
+import { REWARDS } from "@/config/rewards";
 import { currentRaider, raiderLabel } from "@/server/identity";
+import { liveRanking, poolState, standingOf } from "@/server/rewards";
 import { daily, seasonBoards, snapshot } from "@/server/progress";
 import { computeStats, rankDefenders, rankFastest, rankRaiders } from "@/server/stats";
 import styles from "@/components/leaderboards/leaderboards.module.css";
@@ -19,8 +22,26 @@ export const metadata: Metadata = { title: "Leaderboards · Chog Raid" };
 const profile = (id: string) => `/u/${encodeURIComponent(id)}`;
 
 export default async function Leaderboards() {
-  const [snap, me] = await Promise.all([snapshot(), currentRaider()]);
-  const boards = seasonBoards(snap, me);
+  const [snap, me, pool] = await Promise.all([snapshot(), currentRaider(), poolState()]);
+  const ranking = await liveRanking(snap.raids, snap.supply);
+  // Show the whole reward zone (top N) plus a few rows past it, so the cutoff is visible.
+  const boards = seasonBoards(snap, me, REWARDS.topN + 8);
+  const money = (n: number) => new Intl.NumberFormat("en", { maximumFractionDigits: 2 }).format(n);
+  const funded = pool.state === "funded";
+
+  /** Where the viewer stands on one board, in plain words. Never "you won". */
+  const mineLine = (board: "wardens" | "raiders") => {
+    if (!me) return null;
+    if (me.startsWith("guest:")) return "Connect a wallet to be eligible for rewards: guests appear on the board but can't receive them.";
+    const st = standingOf(ranking[board], me, board, pool);
+    if (!st) {
+      return board === "raiders"
+        ? `You're not ranked for rewards yet: clear ${REWARDS.eligibility.raiderMinRoomsCleared} different rooms this season.`
+        : "You're not ranked for rewards yet: earn Warden points when raiders fail in a Chog you hold.";
+    }
+    if (st.inZone) return `You're #${st.rank}, inside the reward zone (top ${REWARDS.topN}).${funded ? ` Projected share: ${money(st.amount)} $CHOG, which changes until the season ends.` : " Rewards activate when the pool is funded."}`;
+    return `You're #${st.rank}${st.toCutoff ? `: ${st.toCutoff} point${st.toCutoff === 1 ? "" : "s"} to reach the top ${REWARDS.topN}` : ""}.`;
+  };
   const today = daily(snap, me);
   const stats = computeStats(snap.raids);
   const isMe = (id: string) => !!me && id.toLowerCase() === me.toLowerCase();
@@ -34,7 +55,12 @@ export default async function Leaderboards() {
     </div>
   );
 
-  const pointsTable = (rows: typeof boards.raiders, unit: string) => (
+  const pointsTable = (rows: typeof boards.raiders, unit: string, board: "wardens" | "raiders") => (
+    <>
+    <p className={styles.zoneNote}>
+      {mineLine(board) ?? `Rows with a gold edge are inside the reward zone: the top ${REWARDS.topN} eligible wallets.`}
+      {!funded && " Rewards activate when the pool is funded."}
+    </p>
     <table className={styles.table}>
       <thead>
         <tr>
@@ -42,11 +68,14 @@ export default async function Leaderboards() {
           <th>Player</th>
           <th>Points</th>
           <th>{unit}</th>
+          <th title="Projected from the real pool balance; 0 until the pool is funded. Not guaranteed.">Est. share</th>
         </tr>
       </thead>
       <tbody>
-        {rows.map((r) => (
-          <tr key={r.id} data-me={r.me || undefined}>
+        {rows.map((r) => {
+          const st = standingOf(ranking[board], r.id, board, pool);
+          return (
+          <tr key={r.id} data-me={r.me || undefined} data-zone={st?.inZone || undefined}>
             <td className="num">{r.place}</td>
             <td>
               <Link href={profile(r.id)} className={styles.player}>
@@ -56,10 +85,26 @@ export default async function Leaderboards() {
             </td>
             <td className="num">{r.points}</td>
             <td className="num">{r.count}</td>
+            <td className={styles.share}>
+              {r.id.startsWith("guest:") ? (
+                <span className="muted small">Wallet needed</span>
+              ) : st?.inZone ? (
+                <>
+                  <span className="num">{money(st.amount)}</span> $CHOG
+                  <small>{st.sharePct}% of the half</small>
+                </>
+              ) : (
+                <span className="muted" title="Not ranked for rewards yet (see the rules)">
+                  —
+                </span>
+              )}
+            </td>
           </tr>
-        ))}
+          );
+        })}
       </tbody>
     </table>
+    </>
   );
 
   return (
@@ -82,18 +127,20 @@ export default async function Leaderboards() {
           </div>
         </div>
 
+        <SeasonRewards />
+
         <Tabs
           tabs={[
             {
               id: "raiders",
               label: "Raiders",
-              content: boards.raiders.length ? pointsTable(boards.raiders, "Clears") : empty("No clears this season yet. Points go to the first raider through."),
+              content: boards.raiders.length ? pointsTable(boards.raiders, "Clears", "raiders") : empty("No clears this season yet. Points go to the first raider through."),
             },
             {
               id: "wardens",
               label: "Wardens",
               content: boards.wardens.length
-                ? pointsTable(boards.wardens, "Holds")
+                ? pointsTable(boards.wardens, "Holds", "wardens")
                 : empty("No Warden points this season yet. Defend your Chog: every raider who fails in your room scores for you.", "/defend", "Defend my Chog"),
             },
             {

@@ -6,7 +6,7 @@ import "server-only";
 //     the player's wallet; this server verifies it on-chain (it never trusts the client), applies it
 //     exactly once, and records the attempt.
 //
-// No prize pool, no payouts, nothing funded. Free attempts are the default and the main path.
+// Free attempts are the default and the main path. (Season Rewards are in rewards.ts: the pool is the real balance of the pool address.)
 
 import { cookies } from "next/headers";
 import { createPublicClient, formatUnits, getAddress, http, isAddress, parseAbi, parseUnits } from "viem";
@@ -24,6 +24,9 @@ const lc = (s: string) => s.toLowerCase();
 export const chogEnabled = () => process.env.NEXT_PUBLIC_FEATURE_CHOG_TOKEN !== "false";
 const asAddress = (v: string | undefined) => (v && isAddress(v.trim(), { strict: false }) ? (getAddress(v.trim()) as `0x${string}`) : null);
 export const chogToken = () => asAddress(process.env.NEXT_PUBLIC_CHOG_TOKEN_ADDRESS);
+
+/** The pool / payment address (CHOG_PRIZE_POOL_ADDRESS), or null when it isn't set. */
+export const prizePoolAddress = () => asAddress(process.env.CHOG_PRIZE_POOL_ADDRESS);
 
 export type PaymentConfig = { token: `0x${string}`; recipient: `0x${string}`; amount: number };
 

@@ -1,0 +1,128 @@
+/* Season Rewards panel. Calm and factual: nothing here is a promise. */
+.panel {
+  max-width: 1120px;
+  margin: 0 auto 18px;
+  padding: 16px 18px;
+  background: rgba(33, 24, 19, 0.88);
+  border: 3px solid var(--border);
+  box-shadow: 0 0 0 2px var(--ink);
+}
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin-bottom: 10px;
+}
+.title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 22px;
+  color: var(--gold);
+}
+.pill {
+  padding: 3px 10px;
+  font-size: 13px;
+  font-family: var(--font-pixel);
+  color: var(--text);
+  background: rgba(11, 8, 6, 0.7);
+  border: 2px solid var(--border);
+}
+.pill[data-tone="on"] {
+  color: var(--ink);
+  background: var(--moss);
+  border-color: var(--moss);
+}
+.pill[data-tone="warn"] {
+  border-color: var(--torch);
+  color: var(--torch);
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+}
+.stat {
+  padding: 10px 12px;
+  background: rgba(11, 8, 6, 0.55);
+  border: 2px dashed var(--border);
+}
+.label {
+  margin: 0 0 4px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.big {
+  margin: 0;
+  font-size: 20px;
+}
+.big b {
+  font-size: 22px;
+  font-weight: 400;
+  color: var(--gold);
+}
+.honest {
+  margin: 12px 0 0;
+  padding: 8px 10px;
+  font-size: 14px;
+  color: var(--text);
+  border-left: 4px solid var(--torch);
+  background: rgba(255, 179, 71, 0.07);
+}
+.how {
+  margin-top: 12px;
+}
+.howHead {
+  margin: 0 0 6px;
+  font-size: 15px;
+  color: var(--torch);
+}
+.table {
+  width: 100%;
+  max-width: 520px;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.table th,
+.table td {
+  padding: 4px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.table th {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+.mine {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  font-size: 14px;
+}
+.mine li {
+  margin-bottom: 3px;
+}
+.foot {
+  margin: 12px 0 0;
+  font-size: 14px;
+}
+.link {
+  padding: 0;
+  font: inherit;
+  color: var(--torch);
+  background: none;
+  border: 0;
+  text-decoration: underline;
+  cursor: pointer;
+}
+@media (max-width: 900px) {
+  .panel {
+    margin: 0 16px 18px;
+  }
+}

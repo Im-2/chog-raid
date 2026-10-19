@@ -2,6 +2,7 @@ import Link from "next/link";
 import { RoomBrowser } from "@/components/home/RoomBrowser";
 import { DungeonBackdrop } from "@/components/home/DungeonBackdrop";
 import { ChogPanel } from "@/components/chog/ChogBits";
+import { SeasonRewards } from "@/components/rewards/SeasonRewards";
 import { DailyCard } from "@/components/progress/DailyCard";
 import { SeasonRecap } from "@/components/progress/SeasonRecap";
 import { SiteFooter } from "@/components/ui/SiteFooter";
@@ -50,6 +51,7 @@ export default function Home() {
           </section>
 
           <ChogPanel />
+          <SeasonRewards />
 
           <div className="container">
             <SeasonRecap />

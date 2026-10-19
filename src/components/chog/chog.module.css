@@ -324,3 +324,9 @@
   background: rgba(11, 8, 6, 0.7);
   border: 2px solid var(--border);
 }
+
+.h3 {
+  margin: 8px 0 6px;
+  font-size: 16px;
+  color: var(--text);
+}
