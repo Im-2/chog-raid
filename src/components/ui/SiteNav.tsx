@@ -1,13 +1,15 @@
 import Link from "next/link";
 import { ChogBadge } from "../chog/ChogBits";
 import { NavChips } from "../progress/NavChips";
-import { WalletButton } from "../wallet/WalletButton";
+import { ChainGuard, WalletButton } from "../wallet/WalletButton";
 import { MobileMenu } from "./MobileMenu";
 import styles from "./nav.module.css";
 
 /** Logo, three links, one $CHOG balance chip and one wallet button. Streak and alerts live in the wallet menu. */
 export function SiteNav() {
   return (
+    <>
+    <ChainGuard />
     <header className={styles.nav}>
       <Link href="/" className={styles.brand}>
         CHOG<span>RAID</span>
@@ -24,5 +26,6 @@ export function SiteNav() {
       </div>
       <NavChips />
     </header>
+    </>
   );
 }

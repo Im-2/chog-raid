@@ -1,7 +1,7 @@
 "use client";
 
 import { encodeFunctionData, parseAbi, toHex } from "viem";
-import { pickProvider } from "../wallet/session";
+import { getWalletProvider } from "../wallet/session";
 import type { ChogPayment } from "./useChog";
 
 const ERC20 = parseAbi(["function transfer(address to, uint256 amount) returns (bool)"]);
@@ -14,8 +14,8 @@ export class PayError extends Error {}
  * Returns the transaction hash; the server then verifies it on-chain before anything is granted.
  */
 export async function sendChogPayment(p: ChogPayment, from: string): Promise<`0x${string}`> {
-  const provider = pickProvider();
-  if (!provider) throw new PayError("No wallet found. Open this site in a wallet-enabled browser.");
+  const provider = await getWalletProvider();
+  if (!provider) throw new PayError("Your wallet isn't connected. Press Connect, pick your wallet, then try again.");
   const req = (method: string, params?: unknown[]) => provider.request({ method, params });
   try {
     const [account] = (await req("eth_accounts")) as string[];

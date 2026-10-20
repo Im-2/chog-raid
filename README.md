@@ -84,3 +84,7 @@ Offline analysis (run with `npx tsx --conditions=react-server <script>`):
 - `scripts/difficulty-index.mts`: rebuild `src/data/chog-difficulty.json` (rerun after changing the engine or `src/config/tiers.ts`)
 - `scripts/balance-sim.mts [raids] [--practice]`: simulate raids per tier on the real rooms and print clear rates
 - `node scripts/fetch-metadata.mjs <outDir>`: snapshot all Chog metadata and trait counts
+
+## Wallet connection
+
+Connect uses **Reown AppKit** on wagmi (`src/components/wallet/appkit.ts`, loaded lazily): MetaMask, Rabby, Coinbase, Rainbow, Trust, OKX, Backpack, Phantom first, the whole WalletConnect registry via search, browser wallets via EIP-6963, a QR code on desktop and wallet deep links on phones. Set `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` and add `localhost` and your production domain to the project's **allowlist** in the Reown dashboard. Without the ID the console says so and only detected browser wallets are listed. The chain (id, RPC, name, explorer) comes from `NEXT_PUBLIC_CHAIN_*`/`NEXT_PUBLIC_RPC_URL` and is checked against the RPC on load. After connecting, the wallet signs the same Sign-In-with-Ethereum message as before and ownership is still verified only on the server. The "Demo owner" sign-in exists only in mock mode with `DEMO_SIGNIN=1` and is disabled when `NODE_ENV=production`. `.npmrc` sets `legacy-peer-deps` because of upstream peer ranges in the wallet packages.

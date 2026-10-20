@@ -16,5 +16,5 @@ export async function DELETE() {
 }
 
 function demoSignInEnabled() {
-  return env.nftAdapter === "mock" && process.env.DEMO_SIGNIN === "1" && !!env.mockOwner;
+  return process.env.NODE_ENV !== "production" && env.nftAdapter === "mock" && process.env.DEMO_SIGNIN === "1" && !!env.mockOwner;
 }

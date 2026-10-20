@@ -6,7 +6,7 @@ import { startSession } from "@/server/session";
  * so the defend flow can be tried with no wallet. Never available with real onchain data.
  */
 export async function POST() {
-  if (env.nftAdapter !== "mock" || process.env.DEMO_SIGNIN !== "1" || !env.mockOwner) {
+  if (process.env.NODE_ENV === "production" || env.nftAdapter !== "mock" || process.env.DEMO_SIGNIN !== "1" || !env.mockOwner) {
     return Response.json({ error: "Demo sign-in is off." }, { status: 404 });
   }
   await startSession(env.mockOwner);

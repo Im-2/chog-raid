@@ -3,39 +3,93 @@
 import { useSyncExternalStore } from "react";
 import { getAddress, toHex } from "viem";
 import { createSiweMessage } from "viem/siwe";
+import type { AccountInfo, WalletApi } from "./appkit";
+import { CHAIN_ID } from "./chain";
 
-type Eip1193 = { request(args: { method: string; params?: unknown[] }): Promise<unknown> };
-type Announced = { info: { name: string; rdns: string; icon: string }; provider: Eip1193 };
+// Two layers, kept separate on purpose:
+//   1. the wallet connection (Reown AppKit + wagmi, loaded lazily in ./appkit), and
+//   2. the game session: a Sign-In-with-Ethereum message signed by the connected wallet and verified
+//      by the server (/api/auth/*). Ownership checks happen on the server and are unchanged.
 
 export type SessionState = {
   status: "loading" | "ready" | "signing";
+  /** The signed-in (server-verified) address. */
   address: string | null;
-  /** Mock-mode demo owner address when demo sign-in is enabled. */
+  /** Mock-mode demo owner address when demo sign-in is enabled (dev flag, never production). */
   demo: string | null;
   error: string | null;
+  /** The connected wallet (may differ from the session, e.g. after switching accounts). */
+  wallet: AccountInfo;
+  /** Connect list shown by our own UI (only when WalletConnect isn't configured). */
+  fallbackOpen: boolean;
+  /** Whether the wallet module has loaded. */
+  walletReady: boolean;
 };
 
-let state: SessionState = { status: "loading", address: null, demo: null, error: null };
+let state: SessionState = {
+  status: "loading",
+  address: null,
+  demo: null,
+  error: null,
+  wallet: { address: null, chainId: null, connected: false },
+  fallbackOpen: false,
+  walletReady: false,
+};
 const listeners = new Set<() => void>();
 const set = (patch: Partial<SessionState>) => {
   state = { ...state, ...patch };
   listeners.forEach((l) => l());
 };
 
-// EIP-6963 wallet discovery (MetaMask, Rabby, Phantom, Backpack, ...).
-const wallets: Announced[] = [];
-if (typeof window !== "undefined") {
-  window.addEventListener("eip6963:announceProvider", (e) => {
-    const d = (e as CustomEvent<Announced>).detail;
-    if (d?.provider && !wallets.some((w) => w.info.rdns === d.info.rdns)) wallets.push(d);
-  });
-  window.dispatchEvent(new Event("eip6963:requestProvider"));
+// ---- wallet module (lazy) ----
+
+let walletPromise: Promise<WalletApi> | null = null;
+let wallet: WalletApi | null = null;
+/** True from "Connect" being pressed until a session exists or the user backs out. */
+let wantSignIn = false;
+let signing = false;
+
+/** Load AppKit/wagmi once. Heavy, so it only runs on Connect or when a session already exists. */
+export function loadWallet(): Promise<WalletApi> {
+  if (!walletPromise) {
+    walletPromise = import("./appkit").then(({ initWallet }) => {
+      const w = initWallet();
+      wallet = w;
+      set({ walletReady: true, wallet: w.account() });
+      w.onAccount((a) => {
+        set({ wallet: a });
+        // Let AppKit finish and close its own connect flow before asking for the signature.
+        if (a.connected && wantSignIn && !state.address) setTimeout(() => void finishSignIn(), 400);
+        // The wallet switched to a different account than the signed-in one: the old session no longer matches.
+        if (a.connected && a.address && state.address && a.address.toLowerCase() !== state.address.toLowerCase() && !signing) {
+          void endServerSession("Your wallet switched accounts. Sign in again to continue.");
+        }
+      });
+      w.onModal((open) => {
+        if (!open && !w.account().connected) wantSignIn = false;
+      });
+      return w;
+    });
+  }
+  return walletPromise;
 }
 
-/** The browser wallet to talk to (EIP-6963 announced, else window.ethereum). */
-export function pickProvider(): Eip1193 | null {
-  if (wallets.length) return wallets[0].provider;
-  return ((window as unknown as { ethereum?: Eip1193 }).ethereum as Eip1193) ?? null;
+/** The connected wallet's provider (for sending transactions); null if nothing is connected. */
+export async function getWalletProvider() {
+  const w = wallet ?? (await loadWallet());
+  return w.provider();
+}
+
+/** Ask the connected wallet to switch to the game chain (Monad). */
+export async function switchToGameChain() {
+  const w = await loadWallet();
+  try {
+    await w.switchToGameChain();
+    set({ error: null });
+  } catch (e) {
+    const err = e as { code?: number; message?: string };
+    set({ error: err.code === 4001 ? "Network switch was cancelled." : "Couldn't switch the network. Switch to Monad in your wallet." });
+  }
 }
 
 let loaded = false;
@@ -46,22 +100,46 @@ async function load() {
     const r = await fetch("/api/auth/session", { cache: "no-store" });
     const j = await r.json();
     set({ status: "ready", address: j.address ?? null, demo: j.demo ?? null });
+    // A signed-in player may need to pay or send a transaction, so restore the wallet connection quietly.
+    if (j.address && typeof window !== "undefined") {
+      const idle = (window as unknown as { requestIdleCallback?: (cb: () => void) => void }).requestIdleCallback ?? ((cb: () => void) => setTimeout(cb, 1500));
+      idle(() => void loadWallet());
+    }
   } catch {
     set({ status: "ready" });
   }
 }
 
-/** Ask the wallet to sign a Sign-In with Ethereum message. No transaction, no gas. */
+/**
+ * Connect Button: open the wallet modal; once a wallet is connected, ask it to sign a
+ * Sign-In-with-Ethereum message (no transaction, no gas) and start the session.
+ */
 export async function signIn(): Promise<string | null> {
-  const provider = pickProvider();
-  if (!provider) {
-    set({ error: "No wallet found. Install MetaMask or Rabby, or open this site in your wallet's browser." });
-    return null;
-  }
-  set({ status: "signing", error: null });
+  set({ error: null });
+  wantSignIn = true;
   try {
-    const [account] = (await provider.request({ method: "eth_requestAccounts" })) as string[];
-    if (!account) throw new Error("No account selected.");
+    const w = await loadWallet();
+    if (w.account().connected) return await finishSignIn();
+    if (w.mode === "appkit") w.open();
+    else set({ fallbackOpen: true });
+  } catch (e) {
+    wantSignIn = false;
+    console.error("[wallet] couldn't load the wallet connector", e);
+    set({ error: "Couldn't load wallet support. Check your connection and try again." });
+  }
+  return null;
+}
+
+async function finishSignIn(): Promise<string | null> {
+  if (signing || !wallet) return null;
+  signing = true;
+  wantSignIn = false;
+  set({ status: "signing", error: null, fallbackOpen: false });
+  wallet.close();
+  try {
+    const provider = await wallet.provider();
+    const account = wallet.account().address;
+    if (!provider || !account) throw new Error("No wallet account is connected.");
     const address = getAddress(account);
     const { nonce } = await (await fetch("/api/auth/nonce", { cache: "no-store" })).json();
     const message = createSiweMessage({
@@ -70,7 +148,7 @@ export async function signIn(): Promise<string | null> {
       statement: "Sign in to Chog Raid to defend your Chogs. This costs no gas and moves no tokens.",
       uri: window.location.origin,
       version: "1",
-      chainId: Number(process.env.NEXT_PUBLIC_CHAIN_ID) || 143,
+      chainId: CHAIN_ID,
       nonce,
       issuedAt: new Date(),
     });
@@ -88,6 +166,8 @@ export async function signIn(): Promise<string | null> {
     const err = e as { code?: number; message?: string };
     set({ status: "ready", error: err.code === 4001 ? "Signature request was cancelled." : (err.message ?? "Sign-in failed.") });
     return null;
+  } finally {
+    signing = false;
   }
 }
 
@@ -98,9 +178,40 @@ export async function demoSignIn() {
   else set({ error: j.error });
 }
 
+async function endServerSession(error: string | null = null) {
+  await fetch("/api/auth/session", { method: "DELETE" }).catch(() => {});
+  set({ address: null, error });
+}
+
+/** Disconnect: end the game session and the wallet connection. */
 export async function signOut() {
-  await fetch("/api/auth/session", { method: "DELETE" });
-  set({ address: null });
+  await endServerSession();
+  if (wallet) await wallet.disconnect();
+}
+
+/** Switch account: disconnect, then open the wallet list again (a new connection asks to sign in). */
+export async function switchAccount() {
+  await endServerSession();
+  const w = await loadWallet();
+  await w.disconnect();
+  await signIn();
+}
+
+export function closeFallback() {
+  wantSignIn = false;
+  set({ fallbackOpen: false });
+}
+
+export async function connectFallback(index: number) {
+  const w = await loadWallet();
+  const c = w.connectors()[index];
+  if (!c) return;
+  try {
+    await w.connectWith(c);
+  } catch (e) {
+    const err = e as { code?: number; message?: string };
+    set({ error: err.code === 4001 ? "Connection was cancelled." : (err.message?.split("\n")[0] ?? "Couldn't connect.") });
+  }
 }
 
 export function clearSessionError() {
