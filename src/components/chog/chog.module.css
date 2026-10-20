@@ -147,25 +147,24 @@
 /* ---- Daily card: the quiet optional payment ---- */
 .raidRow {
   display: flex;
+  flex-direction: column;
   gap: 8px;
-  align-items: stretch;
 }
-/* The free Raid button stays the main action: it keeps its full label, the payment is the smaller one. */
+/* Free Raid button on top at full width, the optional payment under it: neither label can ever be clipped. */
 .raidRow > :first-child {
-  flex: 1 1 auto;
-  min-width: 0;
-  white-space: nowrap;
+  width: 100%;
   text-align: center;
-  font-size: 15px;
-  padding-inline: 8px;
+  white-space: normal;
 }
 .payBtn {
-  flex: 0 0 auto;
+  width: 100%;
+  justify-content: center;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 6px 8px;
-  font-size: 13px;
+  gap: 6px;
+  min-height: 40px;
+  padding: 6px 10px;
+  font-size: 14px;
   white-space: nowrap;
 }
 .optional {
